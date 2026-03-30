@@ -1,0 +1,44 @@
+--- app/client/src/App.jsx2026-03-30
++++ app/client/src/App.jsx2026-03-30
+@@ -64,10 +64,13 @@
+             )}
+             
+             {/* macOS Style Status Bar - Added shrink-0 and robust flex handling */}
+-            <header className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium z-10 glass-panel mb-6 rounded-full shrink-0">
++            <header className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium z-10 glass-panel mb-6 rounded-full shrink-0 relative">
+                 <div className="flex items-center gap-3">
+                     <span className="text-white/90 font-bold tracking-wider uppercase text-xs">ProdBoard v0.1</span>
+                 </div>
++                <div className="absolute left-1/2 -translate-x-1/2 font-medium text-white/80 text-sm tracking-wide">
++                    <DateHeader />
++                </div>
+                 <div className="flex items-center gap-4">
+                     <PingStatus />
+                     <span className="text-white/80"><ClockHeader /></span>
+@@ -282,9 +285,9 @@
+     }, []);
+ 
+-    // Large Minimalist Digital Readout (Hours/Minutes only) perfectly centered
+     return (
+-        <div className="flex flex-col justify-center items-center pointer-events-auto">
+-            <h1 className="text-[12rem] font-black tracking-tighter leading-none" style={{ color: 'var(--accent-color)', textShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
++        <div className="glass-panel p-10 flex flex-col justify-center items-center pointer-events-auto w-fit mx-auto">
++            <h1 className="text-8xl font-black tracking-tighter leading-none" style={{ color: 'var(--accent-color)' }}>
+                 {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+             </h1>
+         </div>
+     );
+ };
+@@ -359,4 +362,13 @@
+ };
+ 
++const DateHeader = () => {
++    const [date, setDate] = useState(new Date());
++    useEffect(() => {
++        const timer = setInterval(() => setDate(new Date()), 60000); 
++        return () => clearInterval(timer);
++    }, []);
++    return <span>{date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>;
++};
++
+ export default App;

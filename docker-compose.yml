@@ -1,0 +1,14 @@
+services:
+  dashboard:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./app/server:/app/server
+      # If using a local service account JSON file, map it so the container can read it:
+      # - ./service-account.json:/app/service-account.json:ro
+    restart: unless-stopped

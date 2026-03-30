@@ -1,0 +1,36 @@
+--- app/client/src/App.jsx
++++ app/client/src/App.jsx
+@@ -137,6 +137,9 @@
+     
+     // Moon Phase calculation
+     const moonPhaseStr = getMoonPhase(new Date());
++    
++    // Get next 8 intervals (3 hours each) which equals 24 hours
++    const next24 = forecast && forecast.list ? forecast.list.slice(0, 8) : [];
+ 
+     return (
+@@ -162,11 +165,11 @@
+-            {/* 1 Medium Widget: Next 4 periods */}
+-            <div className="glass-panel p-4 flex flex-col justify-center">
+-                <div className="text-white/60 font-medium tracking-wide text-xs uppercase mb-3 border-b border-white/10 pb-2">Upcoming</div>
+-                <div className="flex justify-between items-center px-1">
+-                    {forecast && forecast.list.slice(0, 4).map((item, i) => (
+-                        <ForecastItem key={i} item={item} accentColor={accentColor} />
+-                    ))}
++            {/* 1 Medium Widget: Scrolling 24-Hour Forecast */}
++            <div className="glass-panel p-4 flex flex-col justify-center overflow-hidden">
++                <div className="text-white/60 font-medium tracking-wide text-xs uppercase mb-3 border-b border-white/10 pb-2 shrink-0">24-Hour Forecast</div>
++                <div className="flex items-center overflow-hidden relative w-full mask-edges">
++                    <div className="flex items-center animate-marquee will-change-transform gap-8 pr-8">
++                        {/* Render array twice to create a seamless infinite CSS loop */}
++                        {[...next24, ...next24].map((item, i) => (
++                            <ForecastItem key={i} item={item} accentColor={accentColor} />
++                        ))}
++                    </div>
+                 </div>
+             </div>
+@@ -298,3 +301,3 @@
+     return (
+-        <div className="flex flex-col items-center z-10 w-1/4">
++        <div className="flex flex-col items-center z-10 shrink-0 min-w-[3rem]">
+             <span className="text-xs text-white/60 mb-2 truncate">{time}</span>

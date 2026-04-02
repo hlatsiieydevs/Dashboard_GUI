@@ -5,6 +5,7 @@ const ACCENT_MAP = {
     ClearDay: '#0EA5E9',   // Sky Blue
     ClearNight: '#6366F1', // Deep Indigo
     Cloudy: '#64748B',     // Soft Slate
+    CloudyNight: '#334155', // Dark Slate
     Rain: '#64748B',       // Soft Slate
     Sunset: '#F59E0B',     // Warm Amber
 };
@@ -14,6 +15,7 @@ const IMAGE_MAP = {
     ClearDay: 'https://images.unsplash.com/photo-1601297183305-6df142704ea2?q=80&w=1920&auto=format&fit=crop', // Clear blue sky
     ClearNight: 'https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1920&auto=format&fit=crop', // Starry night
     Cloudy: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?q=80&w=1920&auto=format&fit=crop', // Cloudy overcast
+    CloudyNight: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?q=80&w=1920&auto=format&fit=crop', // Dark/Cloudy night
     Rain: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=80&w=1920&auto=format&fit=crop', // Rain on glass
     Sunset: 'https://images.unsplash.com/photo-1472141521881-9b503f8a0ff1?q=80&w=1920&auto=format&fit=crop', // Warm sunset
 };
@@ -66,8 +68,8 @@ export const useWeatherEnvironment = () => {
                         newAccent = ACCENT_MAP.Rain;
                         newImage = IMAGE_MAP.Rain;
                     } else if (mainCondition === 'Clouds' || mainCondition === 'Mist' || mainCondition === 'Fog' || mainCondition === 'Snow') {
-                        newAccent = ACCENT_MAP.Cloudy;
-                        newImage = IMAGE_MAP.Cloudy;
+                        newAccent = isNight ? ACCENT_MAP.CloudyNight : ACCENT_MAP.Cloudy;
+                        newImage = isNight ? IMAGE_MAP.CloudyNight : IMAGE_MAP.Cloudy;
                     } else if (isNight) {
                         newAccent = ACCENT_MAP.ClearNight;
                         newImage = IMAGE_MAP.ClearNight;

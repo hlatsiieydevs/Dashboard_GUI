@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWeatherEnvironment } from './hooks/useWeatherEnvironment';
 import { Sun, Cloud, CloudRain, CloudLightning, Snowflake, Umbrella, Moon as MoonIcon, Sunrise, Sunset } from 'lucide-react';
 
@@ -111,6 +111,7 @@ const App = () => {
                 {/* Left Side: Calendar Focus. Reduced width so it doesn't overlap center clock too much */}
                 <div className="w-[30%] min-w-[320px] flex flex-col gap-6 h-full pb-2">
                     <CalendarWidget />
+                    <UpcomingWidget />
                 </div>
 
                 {/* Right Side: iOS Widget Clusters */}
@@ -138,8 +139,8 @@ const WeatherWidgetsCluster = ({ accentColor, weatherData }) => {
     const minTemp = Math.round(Math.min(current.main.temp_min, ...next24.map(item => item.main.temp_min)));
     const maxTemp = Math.round(Math.max(current.main.temp_max, ...next24.map(item => item.main.temp_max)));
 
-    // Probability of precipitation from next 3 hour block
-    const popRaw = forecast && forecast.list ? forecast.list[0].pop : 0;
+    // Probability of precipitation from next 24 hour block
+    const popRaw = next24.length > 0 ? Math.max(...next24.map(item => item.pop || 0)) : 0;
     const pop = Math.round(popRaw * 100);
     
     // Wind properties
@@ -282,7 +283,7 @@ const PrecipWidget = ({ pop, accentColor }) => {
 // SVG Moon Widget
 const MoonPhaseWidget = ({ phaseName }) => {
     const p = MOON_PATHS[phaseName] || '';
-    const moonTint = getMoonEventColor(phaseName);
+    const moonTint = getMoonEventColor(phaseName, new Date());
 
     return (
         <div className="flex flex-col items-center justify-center w-full h-full relative p-2">
@@ -437,30 +438,155 @@ const CalendarWidget = () => {
     if (disabled) return null; 
 
     return (
-        <div className="glass-panel p-6 flex flex-col max-h-[60%]">
-            <h2 className="text-lg font-semibold mb-4 text-white/80 border-b border-white/10 pb-3">Agenda</h2>
+        <div className="glass-panel p-6 flex flex-col aspect-square">
+            <h2 className="text-lg font-semibold mb-4 text-white/80 border-b border-white/10 pb-3">Today's Schedule</h2>
             <div className="space-y-3 overflow-y-auto flex-1 hidden-scrollbar rounded-xl pr-1">
                 {loading ? <p className="text-white/40 text-sm">Loading schedule...</p> : 
                  events.length === 0 ? <p className="text-white/40 text-sm">No upcoming events today.</p> :
-                 events.map((evt, i) => (
-                    <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-2" style={{ borderColor: 'var(--accent-color)' }}>
-                        <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
-                        <span className="text-white/50 text-xs mt-1">
-                            {new Date(evt.start.dateTime || evt.start.date).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false })}
-                        </span>
-                    </div>
-                ))}
+                 events.map((evt, i) => {
+                    const startInfo = evt.start.dateTime || evt.start.date;
+                    const endInfo = evt.end?.dateTime || evt.end?.date;
+                    const startStr = new Date(startInfo).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false });
+                    const endStr = endInfo ? new Date(endInfo).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false }) : '';
+                    return (
+                        <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-2" style={{ borderColor: 'var(--accent-color)' }}>
+                            <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
+                            <span className="text-white/50 text-xs mt-1">
+                                {startStr}{endStr ? ` - ${endStr}` : ''}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+const UpcomingWidget = () => {
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [disabled, setDisabled] = useState(false);
+    const scrollContainerRef = useRef(null);
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            try {
+                const res = await fetch('/api/calendar/upcoming');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.disabled) {
+                        setDisabled(true);
+                    } else {
+                        setEvents(Array.isArray(data.items) ? data.items : []);
+                    }
+                }
+            } catch (err) {
+                console.error('Upcoming calendar error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEvents();
+        const interval = setInterval(fetchEvents, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (!scrollContainerRef.current || events.length === 0) return;
+        let animationId;
+        let scrollPos = 0;
+        let direction = 1;
+
+        const animateScroll = () => {
+            const el = scrollContainerRef.current;
+            if (!el) return;
+            const maxScroll = el.scrollHeight - el.clientHeight;
+            if (maxScroll > 0) {
+                scrollPos += direction * 0.3; // Speed
+                if (scrollPos >= maxScroll + 50) {
+                    scrollPos = maxScroll + 50; 
+                    direction = -1;
+                } else if (scrollPos <= -50) {
+                    scrollPos = -50;
+                    direction = 1;
+                }
+                el.scrollTop = Math.max(0, Math.min(scrollPos, maxScroll));
+            }
+            animationId = requestAnimationFrame(animateScroll);
+        };
+        setTimeout(() => { animationId = requestAnimationFrame(animateScroll); }, 2000);
+        return () => cancelAnimationFrame(animationId);
+    }, [events]);
+
+    if (disabled) return null; 
+
+    return (
+        <div className="glass-panel p-6 flex flex-col flex-1 overflow-hidden min-h-[300px]">
+             <h2 className="text-lg font-semibold mb-4 text-white/80 border-b border-white/10 pb-3 shrink-0">In the next few days</h2>
+             <div className="flex-1 overflow-hidden relative w-full h-full mask-edges-vertical">
+                <div ref={scrollContainerRef} className="h-full overflow-y-auto hidden-scrollbar pb-6 space-y-3">
+                    {loading ? <p className="text-white/40 text-sm">Loading upcoming...</p> : 
+                     events.length === 0 ? <p className="text-white/40 text-sm">No upcoming events this week.</p> :
+                     events.map((evt, i) => {
+                        const startInfo = evt.start?.dateTime || evt.start?.date;
+                        const startDate = new Date(startInfo);
+                        const isDateOnly = !evt.start?.dateTime;
+                        
+                        const dayStr = startDate.toLocaleDateString('en-ZA', { weekday: 'short', month: 'short', day: 'numeric' });
+                        let timeStr = 'All Day';
+                        
+                        if (!isDateOnly && evt.start?.dateTime) {
+                            const endInfo = evt.end?.dateTime || evt.end?.date;
+                            const startT = startDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute:'2-digit', hour12: false });
+                            const endT = endInfo ? new Date(endInfo).toLocaleTimeString('en-ZA', { hour: '2-digit', minute:'2-digit', hour12: false }) : '';
+                            timeStr = `${startT}${endT ? ` - ${endT}` : ''}`;
+                        }
+                        
+                        return (
+                            <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-2 shrink-0 relative" style={{ borderColor: evt.isHoliday ? '#f59e0b' : 'var(--accent-color)' }}>
+                                <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
+                                <div className="flex justify-between mt-1 items-center">
+                                    <span className="text-white/50 text-xs">{dayStr}</span>
+                                    <span className="text-white/40 text-xs">{timeStr}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
 };
 
 const SystemHealth = () => {
+    const [sysInfo, setSysInfo] = useState({ cpu: 'Loading...', status: 'Checking' });
+
+    useEffect(() => {
+        const fetchSys = async () => {
+            try {
+                const res = await fetch('/api/system');
+                if (res.ok) {
+                    const data = await res.json();
+                    let status = 'Nominal';
+                    if (data.memory && data.memory.usagePercent > 90) status = 'High Load';
+                    setSysInfo({ cpu: data.cpu, status: status });
+                } else {
+                    setSysInfo({ cpu: 'Unknown', status: 'Offline' });
+                }
+            } catch (err) {
+                setSysInfo({ cpu: 'Unknown', status: 'Error' });
+            }
+        };
+        fetchSys();
+        const interval = setInterval(fetchSys, 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div className="glass-panel p-5 flex flex-col justify-between shrink-0">
              <h3 className="text-white/60 font-medium tracking-wide text-xs uppercase">System</h3>
-             <div className="text-xl font-bold mt-2" style={{ color: 'var(--accent-color)' }}>Nominal</div>
-             <p className="text-xs text-white/40 mt-1">Intel Celeron N3350</p>
+             <div className="text-xl font-bold mt-2 truncate" style={{ color: 'var(--accent-color)' }}>{sysInfo.status}</div>
+             <p className="text-xs text-white/40 mt-1 truncate">{sysInfo.cpu}</p>
         </div>
     );
 };

@@ -1,4 +1,4 @@
-# Cinematic Dashboard Builder
+# Dashi_QuickView
 ## The "Tinted Glass" Experience
 
 ### Overview

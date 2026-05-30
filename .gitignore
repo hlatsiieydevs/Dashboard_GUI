@@ -18,3 +18,7 @@ yarn-error.log*
 
 # Node
 node_modules/
+
+# Precompiled files
+precompiled/
+precompiled/

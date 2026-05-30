@@ -20,6 +20,34 @@ const IMAGE_MAP = {
     Sunset: 'https://images.unsplash.com/photo-1472141521881-9b503f8a0ff1?q=80&w=1920&auto=format&fit=crop', // Warm sunset
 };
 
+// Dynamic Accent Algorithm (Gets high contrast, complementary pastel color from Unsplash dominant color)
+const getContrastAccent = (hexColor) => {
+    // Basic fallback if unparseable
+    if (!hexColor || hexColor.length < 6) return '#64748B'; 
+    let r = parseInt(hexColor.slice(1, 3), 16) / 255;
+    let g = parseInt(hexColor.slice(3, 5), 16) / 255;
+    let b = parseInt(hexColor.slice(5, 7), 16) / 255;
+    
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) {
+        h = s = 0; 
+    } else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    // Rotate hue by 180 degrees for complementary pop
+    const targetHue = (Math.round(h * 360) + 180) % 360;
+    // Force lightness to ~70% and saturation high so it remains bright/visible against tinted glass
+    return `hsl(${targetHue}, 85%, 70%)`;
+};
+
 export const useWeatherEnvironment = () => {
     const [accentColor, setAccentColor] = useState(ACCENT_MAP.ClearDay);
     const [weatherCode, setWeatherCode] = useState('Clear');
@@ -78,6 +106,33 @@ export const useWeatherEnvironment = () => {
                     setAccentColor(newAccent);
                     setWeatherCode(mainCondition);
                     setTimeOfDay(isNight ? 'Night' : 'Day');
+                    
+                    // Generate dynamic image query
+                    let ns = 'nature,sky,minimalist,';
+                    let query = ns + 'clear,blue';
+                    if (isSunset) query = ns + 'sunset,golden-hour';
+                    else if (mainCondition === 'Rain' || mainCondition === 'Drizzle') query = ns + 'rain,dark,moody';
+                    else if (mainCondition === 'Thunderstorm') query = ns + 'lightning,storm';
+                    else if (mainCondition === 'Clouds' || mainCondition === 'Mist') query = isNight ? ns + 'cloudy,night,dark' : ns + 'cloudy,overcast';
+                    else if (isNight) query = ns + 'night,stars,dark';
+
+                    try {
+                        const bgRes = await fetch(`/api/background?query=${encodeURIComponent(query)}`);
+                        if (bgRes.ok) {
+                            const bgData = await bgRes.json();
+                            if (bgData.image) {
+                                setBgImage(bgData.image);
+                                // The new contrasting hue!
+                                setAccentColor(getContrastAccent(bgData.color || '#64748B'));
+                                return; // Success, gracefully exit without hitting fallbacks
+                            }
+                        }
+                    } catch (unsplashErr) {
+                        console.warn("Unsplash API bypassed or failed. Falling back to static maps.", unsplashErr);
+                    }
+
+                    // Fallback to static if Unsplash is unauthenticated or fails
+                    setAccentColor(newAccent);
                     setBgImage(newImage);
                 }
             } catch (err) {

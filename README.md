@@ -45,11 +45,12 @@ This project is a high-fidelity, single-screen dashboard. It merges the aestheti
 
 **Option A: Precompiled Docker Image (x86_64 Architecture)**
 For maximum simplicity on standard Intel/AMD hardware (x86_64), you can utilize a precompiled Docker image `.tar` archive.
-1. Load the precompiled image into your host's Docker daemon:
+1. Download the precompiled image from [Google Drive](https://drive.google.com/file/d/142QmhbwsfcSDhQWXRP2T5gjDmVCavYS-/view?usp=sharing) and place it in the `precompiled` directory.
+2. Load the precompiled image into your host's Docker daemon:
    ```bash
-   docker load -i dashboard_gui_x86_64.tar
+   docker load -i precompiled/dashboard_gui_v1_x86_64.tar
    ```
-2. Start the container stack using Docker Compose:
+3. Start the container stack using Docker Compose:
    ```bash
    docker compose up -d
    ```

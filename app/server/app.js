@@ -72,6 +72,28 @@ app.get('/api/weather', async (req, res) => {
     }
 });
 
+// 2.5 Unsplash Proxy (Dynamic Weather Backgrounds)
+app.get('/api/background', async (req, res) => {
+    try {
+        const query = req.query.query || 'nature,sky';
+        const apiKey = process.env.UNSPLASH_KEY;
+        
+        if (!apiKey || apiKey === 'your_unsplash_api_key_here') {
+            return res.status(400).json({ error: "No UNSPLASH_KEY specified in .env" });
+        }
+
+        const unsplashRes = await axios.get(`https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&client_id=${apiKey}&orientation=landscape`);
+        
+        res.json({
+            image: unsplashRes.data.urls.regular, // Standard 1080p width
+            color: unsplashRes.data.color // Hex dominant color (#AABBCC)
+        });
+    } catch (error) {
+        console.error('Unsplash API Error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch background image' });
+    }
+});
+
 // 3. Google Calendar Proxy (Support for SA, iCal, or None)
 app.get('/api/calendar/today', async (req, res) => {
     try {

@@ -4,6 +4,7 @@ import UpcomingWidget from './UpcomingWidget';
 import WeatherWidgetsCluster from './WeatherWidgetsCluster';
 import SystemHealthWidget from './SystemHealthWidget';
 import CalendarFilterLegend from './CalendarFilterLegend';
+import PomodoroWidget from './PomodoroWidget';
 
 export {
     HeroClock,
@@ -11,5 +12,6 @@ export {
     UpcomingWidget,
     WeatherWidgetsCluster,
     SystemHealthWidget,
-    CalendarFilterLegend
+    CalendarFilterLegend,
+    PomodoroWidget
 };

@@ -393,6 +393,141 @@ app.get('/api/system', (req, res) => {
     }
 });
 
+// ==========================================
+// 🔌 MQTT & Dashboard Modes Engine (`home/modes`)
+// ==========================================
+let mqtt = null;
+try {
+    mqtt = require('mqtt');
+} catch (e) {
+    logger.warn('MQTT', 'mqtt npm module not loaded');
+}
+
+const MQTT_ENABLED = process.env.MQTT_ENABLED === 'true';
+const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+const MQTT_TOPIC = process.env.MQTT_TOPIC || 'home/modes';
+
+let modeState = {
+    mode: 'normal', // 'normal' | 'sleep' | 'grind'
+    pomodoro: {
+        workDuration: 25,
+        shortBreakDuration: 5,
+        longBreakDuration: 15,
+        longBreakInterval: 4,
+        state: 'idle', // 'idle' | 'focus' | 'short_break' | 'long_break' | 'paused'
+        timeRemaining: 25 * 60,
+        completedSessions: 0
+    },
+    updatedAt: new Date().toISOString()
+};
+
+// Connected SSE Event Stream clients
+let sseClients = [];
+
+const broadcastModeState = () => {
+    modeState.updatedAt = new Date().toISOString();
+    const payload = `data: ${JSON.stringify(modeState)}\n\n`;
+    sseClients.forEach(client => {
+        try {
+            client.write(payload);
+        } catch (e) {}
+    });
+};
+
+// Setup MQTT Client Subscriber (Optional / Enabled via .env)
+if (mqtt && MQTT_ENABLED) {
+    try {
+        let hasWarnedMqtt = false;
+        const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
+            reconnectPeriod: 10000,
+            connectTimeout: 5000
+        });
+
+        mqttClient.on('connect', () => {
+            logger.info('MQTT', `Connected to broker ${MQTT_BROKER_URL}, subscribing to ${MQTT_TOPIC}`);
+            mqttClient.subscribe(MQTT_TOPIC, (err) => {
+                if (err) logger.error('MQTT', `Failed to subscribe to ${MQTT_TOPIC}`, err);
+            });
+        });
+
+        mqttClient.on('message', (topic, message) => {
+            if (topic === MQTT_TOPIC) {
+                const msgStr = message.toString().trim();
+                logger.info('MQTT', `Message received on ${topic}: ${msgStr}`);
+
+                try {
+                    if (msgStr.startsWith('{')) {
+                        const parsed = JSON.parse(msgStr);
+                        if (parsed.mode) modeState.mode = parsed.mode.toLowerCase();
+                        if (parsed.pomodoro) {
+                            modeState.pomodoro = { ...modeState.pomodoro, ...parsed.pomodoro };
+                        }
+                    } else {
+                        // String mode payload: "normal", "sleep", "grind"
+                        const cleanMode = msgStr.toLowerCase();
+                        if (['normal', 'sleep', 'grind'].includes(cleanMode)) {
+                            modeState.mode = cleanMode;
+                        }
+                    }
+                    broadcastModeState();
+                } catch (e) {
+                    logger.error('MQTT', 'Error parsing MQTT message payload', e);
+                }
+            }
+        });
+
+        mqttClient.on('error', (err) => {
+            if (!hasWarnedMqtt) {
+                logger.info('MQTT', `MQTT Broker unavailable at ${MQTT_BROKER_URL} (Running in standalone HTTP & Mobile Remote mode)`);
+                hasWarnedMqtt = true;
+            }
+        });
+    } catch (e) {
+        logger.error('MQTT', 'Failed to initialize MQTT client', e);
+    }
+} else {
+    logger.info('MQTT', 'MQTT listener disabled (Set MQTT_ENABLED=true or MQTT_BROKER_URL in .env to enable)');
+}
+
+// SSE Real-time Mode Events Endpoint
+app.get('/api/modes/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Send initial state immediately
+    res.write(`data: ${JSON.stringify(modeState)}\n\n`);
+
+    sseClients.push(res);
+
+    req.on('close', () => {
+        sseClients = sseClients.filter(c => c !== res);
+    });
+});
+
+// GET Current Modes & Pomodoro State
+app.get('/api/modes', (req, res) => {
+    res.json(modeState);
+});
+
+// POST Update Mode or Pomodoro Configuration
+app.post('/api/modes', (req, res) => {
+    const { mode, pomodoro } = req.body;
+    if (mode && ['normal', 'sleep', 'grind'].includes(mode.toLowerCase())) {
+        modeState.mode = mode.toLowerCase();
+    }
+    if (pomodoro && typeof pomodoro === 'object') {
+        modeState.pomodoro = { ...modeState.pomodoro, ...pomodoro };
+    }
+    broadcastModeState();
+    res.json({ success: true, modeState });
+});
+
+// Mobile Remote UI Route Fallback
+app.get('/remote', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 // React Router Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
@@ -421,12 +556,19 @@ for (const loc of certLocations) {
     }
 }
 
+// Start Main Dashboard Server (Port 3000 -> 12345)
 if (sslOptions) {
     https.createServer(sslOptions, app).listen(PORT, '0.0.0.0', () => {
-        logger.info('Server', `🔒 HTTPS Server running on https://0.0.0.0:${PORT}`);
+        logger.info('Server', `🔒 HTTPS Main Server running on https://0.0.0.0:${PORT}`);
     });
 } else {
     http.createServer(app).listen(PORT, '0.0.0.0', () => {
-        logger.info('Server', `HTTP Server running on http://0.0.0.0:${PORT}`);
+        logger.info('Server', `HTTP Main Server running on http://0.0.0.0:${PORT}`);
     });
 }
+
+// Start Secondary Control Panel Web Server on Port 12346
+const REMOTE_PORT = process.env.REMOTE_PORT || 12346;
+http.createServer(app).listen(REMOTE_PORT, '0.0.0.0', () => {
+    logger.info('Server', `📱 Mobile Remote Control UI running on http://0.0.0.0:${REMOTE_PORT}`);
+});

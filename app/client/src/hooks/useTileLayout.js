@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export const CATALOG_WIDGETS = [
     { id: 'hero_clock', title: 'Hero Clock', defaultColSpan: 4, defaultRowSpan: 1, minColSpan: 4, minRowSpan: 1, icon: 'Clock' },
+    { id: 'pomodoro', title: 'Pomodoro Timer', defaultColSpan: 3, defaultRowSpan: 3, minColSpan: 3, minRowSpan: 3, icon: 'Timer' },
     { id: 'calendar', title: 'Calendar Focus', defaultColSpan: 3, defaultRowSpan: 3, minColSpan: 3, minRowSpan: 3, icon: 'Calendar' },
     { id: 'upcoming', title: 'Upcoming Events', defaultColSpan: 3, defaultRowSpan: 3, minColSpan: 3, minRowSpan: 3, icon: 'List' },
     { id: 'weather_cluster', title: 'Weather Cluster', defaultColSpan: 3, defaultRowSpan: 3, minColSpan: 3, minRowSpan: 3, icon: 'CloudSun' },

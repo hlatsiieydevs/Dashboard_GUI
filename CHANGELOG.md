@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-07-30
+
+### Added
+- **🔌 MQTT Modes Engine (`home/modes`)**:
+  - Subscribes to MQTT broker topic `home/modes` with support for string mode names (`"sleep"`, `"grind"`, `"normal"`) and JSON parameter payloads (`{"mode":"grind","pomodoro":{"workDuration":25}}`).
+  - Added Server-Sent Events (SSE) stream `/api/modes/events` to broadcast real-time mode transitions to all client screens in **< 50ms**.
+- **🍅 Pomodoro Focus Timer Widget (`PomodoroWidget.jsx`)**:
+  - Circular SVG progress ring, phase indicator (*Focus Session*, *Short Break*, *Long Break*), session cycle counter, and Play/Pause/Reset/Skip playback controls.
+  - Integrated into central widget catalog.
+- **🌙 OLED / AMOLED Sleep Mode**:
+  - Pitch-black background (`#000000`) for zero power draw on OLED displays, isolating the **Hero Clock** in the center foreground with ultra-crisp AMOLED time text.
+- **🔥 Grind / Work Mode**:
+  - Combines **Hero Clock** and **Pomodoro Focus Timer** side-by-side in a unified viewframe.
+  - **Dynamic Background Colors**:
+    - **Focus Session**: Plain pitch-black (`#000000`) for zero distractions.
+    - **Short Break**: Refreshing light blue ambient gradient.
+    - **Long Break**: Relaxing lush green ambient gradient.
+- **📱 Mobile Remote Control Web UI (Port `12346` & `/remote`)**:
+  - Touch-optimized control panel Web UI accessible on port `12346` or `/remote`.
+  - Single-tap mode selection cards (*Normal*, *Sleep*, *Grind*), real-time Pomodoro timer controls, and form inputs to adjust work/break durations from any smartphone or tablet.
+- **📘 `modes.md` Documentation Manual**:
+  - Created complete specification guide for MQTT payloads, CLI examples (`mosquitto_pub`), Home Assistant buttons, REST APIs, and Mobile Remote Web UI guide.
+
+---
+
 ## [1.2.0] - 2026-07-30
 
 ### Added
@@ -19,24 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Collapsible Floating Widget Drawer**:
   - Added a floating catalog drawer fixed at the bottom of the viewport during Edit Mode.
   - Minimizable into a slim tab with a single click.
-  - Allows adding and removing any catalog widget (**Hero Clock**, **Calendar Focus**, **Upcoming Events**, **Weather Cluster**, **System Health**, **Blank Spacer**) dynamically.
 - **Hero Clock Enhancements**:
-  - Added togglable date display in 3-line format:
-    - Line 1: `HH:MM`
-    - Line 2: `<Day of the week>`
-    - Line 3: `<Day No.> <Month of the year> <Year>`
-  - Implemented vector SVG width-justification: all three lines stretch to the exact same visual width!
-  - Added font family selector (`Sans`, `Mono`, `Serif`, `Display`) and font size scaling in Edit Mode with `localStorage` persistence.
-- **Server Logging & HTTPS / SSL Support**:
-  - Added file logger in `app/server/logger.js` outputting timestamped logs to `./logs/dashboard-YYYY-MM-DD.log`.
-  - Added local HTTPS / SSL certificate loader (`certs/key.pem`, `certs/cert.pem`).
-
-### Changed
-- **Modular Widget Architecture**:
-  - Reorganized all dashboard widgets into `app/client/src/components/widgets/` with a centralized exporter registry (`index.js`).
-  - Set default widget placement sizes to their minimum compact W & H dimensions.
-  - Optimized internal paddings and scrollable flex containers (`min-h-0`) across all widgets to prevent text clipping.
-  - Removed date display from status bar header for a minimalist aesthetic.
+  - Added togglable date display in 3-line format (`HH:MM`, `<Day of the week>`, `<Day No.> <Month> <Year>`).
+  - Added font family selector (`Sans`, `Mono`, `Serif`, `Display`) and font size scaling in Edit Mode.
 
 ---
 
@@ -46,11 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-Calendar Support**:
   - Support for multiple iCal feeds via `CALENDAR_ICAL_URLS` in `.env`.
   - Support for multiple Google Calendar IDs via `CALENDAR_IDS` in `.env`.
-  - Custom calendar labeling and color formatting syntax (`Name|URL_or_ID|#Color`).
   - Color-coded badges displayed on events in "Today's Schedule" and "In the next few days" widgets.
-  - Interactive `CalendarFilterLegend` widget allowing users to toggle individual calendar sources on/off.
-- **Resilient Parallel Fetching**:
-  - Backend calendar proxy queries external calendar feeds concurrently using `Promise.allSettled` with individual request timeouts.
 
 ---
 
@@ -58,5 +64,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial release of Dashi_QuickView ("Tinted Glass" single-screen dashboard).
-- Weather-reactive CSS accent color engine using OpenWeather API.
-- Native Google Calendar & South African Public Holidays iCal integration.

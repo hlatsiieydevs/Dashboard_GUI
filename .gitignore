@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+app/.env
 
 # Logs
 npm-debug.log*
@@ -28,3 +29,6 @@ certs/
 
 # Server Logs
 logs/
+
+# Docker Image Tar Archives
+*.tar

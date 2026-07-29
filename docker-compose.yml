@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "12345:3000"
+      - "12346:12346"
     env_file:
       - .env
     volumes:

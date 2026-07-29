@@ -19,6 +19,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
 COPY server/ ./server/
+COPY .env* ./
 
 # Copy built client from stage 1
 COPY --from=builder /app/client/dist ./client/dist

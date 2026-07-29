@@ -1,28 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Type, Calendar, Settings } from 'lucide-react';
+import { Type, Calendar } from 'lucide-react';
 
-const STORAGE_KEY = 'heroclock_settings_v1';
+const STORAGE_KEY = 'heroclock_settings_v2';
 
 const FONT_CLASSES = {
     sans: 'font-sans',
     mono: 'font-mono',
     serif: 'font-serif',
-    display: 'font-extrabold tracking-tight'
-};
-
-const FONT_FAMILY_SVG = {
-    sans: 'system-ui, -apple-system, sans-serif',
-    mono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-    serif: 'Georgia, Cambria, serif',
-    display: 'Outfit, Trebuchet MS, sans-serif'
+    display: 'font-extrabold tracking-tight font-sans'
 };
 
 const HeroClock = ({ isEditMode }) => {
     const [now, setNow] = useState(new Date());
     const [showDate, setShowDate] = useState(true);
     const [fontStyle, setFontStyle] = useState('sans'); // sans | mono | serif | display
-    const [fontSizeScale, setFontSizeScale] = useState(1); // 0.8 | 1 | 1.2
-    const [showSettings, setShowSettings] = useState(false);
+    const [fontSizeScale, setFontSizeScale] = useState(1); // 0.85 | 1 | 1.25
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
@@ -59,13 +51,11 @@ const HeroClock = ({ isEditMode }) => {
     const dayOfWeekStr = now.toLocaleDateString('en-US', { weekday: 'long' });
     const fullDateStr = `${now.getDate()} ${now.toLocaleDateString('en-US', { month: 'long' })} ${now.getFullYear()}`;
 
-    const svgFontFamily = FONT_FAMILY_SVG[fontStyle] || FONT_FAMILY_SVG.sans;
-
     return (
-        <div className="glass-panel p-4 flex flex-col justify-center items-center pointer-events-auto w-full h-full min-h-0 overflow-hidden relative group">
+        <div className="glass-panel p-5 flex flex-col justify-center items-center pointer-events-auto w-full h-full min-h-0 overflow-hidden relative group">
             {/* Clock Controls Overlay in Edit Mode */}
             {isEditMode && (
-                <div className="absolute top-2 right-2 z-40 flex items-center gap-1.5 bg-black/80 backdrop-blur-md p-1 px-2 rounded-lg border border-white/20 text-xs">
+                <div className="absolute top-2 right-2 z-40 flex items-center gap-1.5 bg-black/90 backdrop-blur-md p-1 px-2 rounded-lg border border-white/20 text-xs shadow-lg">
                     {/* Toggle Date Button */}
                     <button
                         type="button"
@@ -95,9 +85,9 @@ const HeroClock = ({ isEditMode }) => {
                     <button
                         type="button"
                         onClick={() => {
-                            const scales = [0.85, 1, 1.2];
+                            const scales = [0.85, 1, 1.25];
                             const nextScale = scales[(scales.indexOf(fontSizeScale) + 1) % scales.length];
-                            saveSettings(showDate, fontStyle, nextScale);
+                            saveSettings(showDate, nextScale === 0.85 ? 'sans' : fontStyle, nextScale);
                         }}
                         className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/80 text-[10px] font-mono"
                         title="Adjust Size Scale"
@@ -107,73 +97,42 @@ const HeroClock = ({ isEditMode }) => {
                 </div>
             )}
 
-            {/* Visual Vector Width Justified SVG Render Container */}
-            <div className="w-full h-full flex items-center justify-center p-2" style={{ transform: `scale(${fontSizeScale})` }}>
-                <svg
-                    viewBox={showDate ? "0 0 320 180" : "0 0 320 90"}
-                    className="w-full h-full max-w-full max-h-full overflow-visible"
-                    preserveAspectRatio="xMidYMid meet"
+            {/* Natural Proportional HTML Typography Container */}
+            <div className={`w-full h-full flex flex-col items-center justify-center text-center transition-all duration-300 ${FONT_CLASSES[fontStyle] || 'font-sans'}`}>
+                {/* Line 1: HH:MM */}
+                <div
+                    className="font-black tracking-tighter leading-none select-none drop-shadow-lg"
+                    style={{
+                        color: 'var(--accent-color)',
+                        fontSize: `clamp(2.5rem, ${6 * fontSizeScale}vw, ${showDate ? 5 * fontSizeScale : 7 * fontSizeScale}rem)`
+                    }}
                 >
-                    {/* Line 1: HH:MM */}
-                    <text
-                        x="0"
-                        y={showDate ? "75" : "70"}
-                        textLength="320"
-                        lengthAdjust="spacingAndGlyphs"
-                        fill="var(--accent-color)"
-                        fontWeight="900"
-                        fontSize={showDate ? "80" : "85"}
-                        fontFamily={svgFontFamily}
-                        className="drop-shadow-lg"
-                    >
-                        {timeStr}
-                    </text>
+                    {timeStr}
+                </div>
 
-                    {showDate && (
-                        <>
-                            {/* Decorative Separator Line */}
-                            <line
-                                x1="0"
-                                y1="95"
-                                x2="320"
-                                y2="95"
-                                stroke="rgba(255,255,255,0.15)"
-                                strokeWidth="1.5"
-                                strokeDasharray="4 4"
-                            />
+                {showDate && (
+                    <div className="w-full flex flex-col items-center justify-center mt-3 pt-2.5 border-t border-white/15 space-y-1">
+                        {/* Line 2: Day of the Week */}
+                        <div
+                            className="font-bold uppercase tracking-[0.3em] text-white/95 text-center w-full leading-snug"
+                            style={{
+                                fontSize: `clamp(0.9rem, ${1.5 * fontSizeScale}vw, ${1.4 * fontSizeScale}rem)`
+                            }}
+                        >
+                            {dayOfWeekStr}
+                        </div>
 
-                            {/* Line 2: Day of the Week */}
-                            <text
-                                x="0"
-                                y="132"
-                                textLength="320"
-                                lengthAdjust="spacingAndGlyphs"
-                                fill="#ffffff"
-                                opacity="0.9"
-                                fontWeight="700"
-                                fontSize="26"
-                                fontFamily={svgFontFamily}
-                            >
-                                {dayOfWeekStr}
-                            </text>
-
-                            {/* Line 3: Day No. Month Year */}
-                            <text
-                                x="0"
-                                y="165"
-                                textLength="320"
-                                lengthAdjust="spacingAndGlyphs"
-                                fill="#ffffff"
-                                opacity="0.6"
-                                fontWeight="600"
-                                fontSize="20"
-                                fontFamily={svgFontFamily}
-                            >
-                                {fullDateStr}
-                            </text>
-                        </>
-                    )}
-                </svg>
+                        {/* Line 3: Day Month Year */}
+                        <div
+                            className="font-medium uppercase tracking-[0.2em] text-white/60 text-center w-full leading-snug"
+                            style={{
+                                fontSize: `clamp(0.75rem, ${1.1 * fontSizeScale}vw, ${1.05 * fontSizeScale}rem)`
+                            }}
+                        >
+                            {fullDateStr}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

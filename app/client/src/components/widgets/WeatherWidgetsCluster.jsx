@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sun, Cloud, CloudRain, CloudLightning, Snowflake, Umbrella, Moon as MoonIcon, Sunrise, Sunset } from 'lucide-react';
-import { getMoonPhase, MOON_PATHS, getMoonEventColor } from '../utils/moonUtils';
+import { getMoonPhase, MOON_PATHS, getMoonEventColor } from '../../utils/moonUtils';
 
 export const BaseWidget = ({ children }) => (
     <div className="glass-panel p-2 aspect-square flex flex-col items-center justify-center relative overflow-hidden">
@@ -196,12 +196,13 @@ const WeatherWidgetsCluster = ({ accentColor, weatherData }) => {
     const moonPhaseStr = getMoonPhase(new Date());
 
     return (
-        <div className="flex flex-col gap-4">
-            <div className="glass-panel p-3 px-5 w-fit border-white/20 shadow-md">
-                <div className="text-white/90 font-bold text-lg tracking-wider capitalize">{current.name}</div>
+        <div className="flex flex-col gap-2 w-full h-full overflow-y-auto hidden-scrollbar p-1">
+            <div className="flex justify-between items-center glass-panel p-2 px-4 border-white/20 shadow-md shrink-0">
+                <div className="text-white/90 font-bold text-sm tracking-wider capitalize truncate">{current.name}</div>
+                <div className="text-xs font-semibold text-white/60">{current.weather?.[0]?.main}</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 flex-1 min-h-[160px]">
                 <BaseWidget>
                     <TempGaugeWidget current={temp} min={minTemp} max={maxTemp} accentColor={accentColor} />
                 </BaseWidget>
@@ -219,10 +220,10 @@ const WeatherWidgetsCluster = ({ accentColor, weatherData }) => {
                 </BaseWidget>
             </div>
 
-            <div className="glass-panel p-4 flex flex-col justify-center overflow-hidden">
-                <div className="text-white/60 font-medium tracking-wide text-xs uppercase mb-3 border-b border-white/10 pb-2 shrink-0">24-Hour Forecast</div>
+            <div className="glass-panel p-3 flex flex-col justify-center overflow-hidden shrink-0">
+                <div className="text-white/60 font-medium tracking-wide text-[10px] uppercase mb-2 border-b border-white/10 pb-1 shrink-0">24-Hour Forecast</div>
                 <div className="flex items-center overflow-hidden relative w-full mask-edges">
-                    <div className="flex items-center animate-marquee will-change-transform gap-8 pr-8">
+                    <div className="flex items-center animate-marquee will-change-transform gap-6 pr-6">
                         {[...next24, ...next24].map((item, i) => (
                             <ForecastItem key={i} item={item} accentColor={accentColor} />
                         ))}

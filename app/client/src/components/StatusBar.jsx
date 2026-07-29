@@ -51,14 +51,65 @@ export const DateHeader = () => {
     return <span>{date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>;
 };
 
-const StatusBar = () => {
+import { LayoutGrid, Lock, RotateCcw, ArrowDownUp, Plus } from 'lucide-react';
+
+const StatusBar = ({ isEditMode, isAutoFlow, onToggleEditMode, onToggleAutoFlow, onAddSpacer, onResetLayout }) => {
     return (
-        <header className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium z-10 glass-panel mb-6 rounded-full shrink-0 relative">
+        <header className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium z-10 glass-panel mb-4 rounded-full shrink-0 relative">
             <div className="flex items-center gap-3">
                 <span className="text-white/90 font-bold tracking-wider uppercase text-xs">ProdBoard v1.1</span>
-            </div>
-            <div className="absolute left-1/2 -translate-x-1/2 font-medium text-white/80 text-sm tracking-wide">
-                <DateHeader />
+                
+                {/* Layout Customize Controls */}
+                <button
+                    type="button"
+                    onClick={onToggleEditMode}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-300 ${
+                        isEditMode
+                            ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/30'
+                            : 'bg-white/10 text-white/80 hover:bg-white/20'
+                    }`}
+                >
+                    {isEditMode ? <LayoutGrid className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                    <span>{isEditMode ? 'Editing Layout' : 'Customize'}</span>
+                </button>
+
+                {isEditMode && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={onToggleAutoFlow}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                isAutoFlow
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
+                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
+                            }`}
+                            title="Toggle Auto-Flow packing vs Free Grid positioning"
+                        >
+                            <ArrowDownUp className="w-3 h-3" />
+                            <span>Auto-Flow: {isAutoFlow ? 'ON' : 'OFF (Free)'}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={onAddSpacer}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/40 transition-colors"
+                            title="Add a blank spacer block to pad or push widgets"
+                        >
+                            <Plus className="w-3 h-3" />
+                            <span>Spacer</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={onResetLayout}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-300 hover:bg-red-500/40 transition-colors"
+                            title="Reset Layout to Default"
+                        >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reset</span>
+                        </button>
+                    </>
+                )}
             </div>
             <div className="flex items-center gap-4">
                 <PingStatus />

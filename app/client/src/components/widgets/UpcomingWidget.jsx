@@ -74,17 +74,17 @@ const UpcomingWidget = ({ calendars, setCalendars, hiddenCalendars }) => {
     const visibleEvents = events.filter(evt => !evt.calendarName || !hiddenCalendars.includes(evt.calendarName));
 
     return (
-        <div className="glass-panel p-6 flex flex-col flex-1 overflow-hidden min-h-[300px]">
-            <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-3 shrink-0">
-                <h2 className="text-lg font-semibold text-white/80">In the next few days</h2>
+        <div className="glass-panel p-4 flex flex-col h-full w-full min-h-0 overflow-hidden">
+            <div className="flex justify-between items-center mb-2 border-b border-white/10 pb-2 shrink-0">
+                <h2 className="text-base font-semibold text-white/80">In the next few days</h2>
                 <span className="text-xs font-mono text-white/40">{visibleEvents.length} events</span>
             </div>
-            <div className="flex-1 overflow-hidden relative w-full h-full mask-edges-vertical">
-                <div ref={scrollContainerRef} className="h-full overflow-y-auto hidden-scrollbar pb-6 space-y-3">
+            <div className="flex-1 overflow-hidden relative w-full h-full mask-edges-vertical min-h-0">
+                <div ref={scrollContainerRef} className="h-full overflow-y-auto hidden-scrollbar pb-2 space-y-2">
                     {loading ? (
-                        <p className="text-white/40 text-sm">Loading upcoming...</p>
+                        <p className="text-white/40 text-xs">Loading upcoming...</p>
                     ) : visibleEvents.length === 0 ? (
-                        <p className="text-white/40 text-sm">No upcoming events this week.</p>
+                        <p className="text-white/40 text-xs">No upcoming events this week.</p>
                     ) : (
                         visibleEvents.map((evt, i) => {
                             const startInfo = evt.start?.dateTime || evt.start?.date;
@@ -104,18 +104,18 @@ const UpcomingWidget = ({ calendars, setCalendars, hiddenCalendars }) => {
                             const borderColor = evt.isHoliday ? '#f59e0b' : (evt.calendarColor || 'var(--accent-color)');
 
                             return (
-                                <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-4 shrink-0 relative transition-all duration-200" style={{ borderColor }}>
+                                <div key={i} className="flex flex-col p-2.5 bg-white/5 rounded-xl border-l-4 shrink-0 relative transition-all duration-200" style={{ borderColor }}>
                                     <div className="flex justify-between items-center gap-2">
-                                        <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
+                                        <span className="font-bold text-xs text-white/90 truncate">{evt.summary}</span>
                                         {evt.calendarName && (
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 bg-white/10 text-white/70" style={{ color: borderColor }}>
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 bg-white/10 text-white/70" style={{ color: borderColor }}>
                                                 {evt.calendarName}
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex justify-between mt-1 items-center">
-                                        <span className="text-white/50 text-xs">{dayStr}</span>
-                                        <span className="text-white/40 text-xs">{timeStr}</span>
+                                        <span className="text-white/50 text-[11px]">{dayStr}</span>
+                                        <span className="text-white/40 text-[11px]">{timeStr}</span>
                                     </div>
                                 </div>
                             );

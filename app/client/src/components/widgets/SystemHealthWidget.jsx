@@ -25,7 +25,7 @@ const SystemHealthWidget = () => {
     }, []);
 
     return (
-        <div className="glass-panel p-5 flex flex-col justify-between shrink-0">
+        <div className="glass-panel p-5 flex flex-col justify-between w-full h-full">
             <h3 className="text-white/60 font-medium tracking-wide text-xs uppercase">System</h3>
             <div className="text-xl font-bold mt-2 truncate" style={{ color: 'var(--accent-color)' }}>{sysInfo.status}</div>
             <p className="text-xs text-white/40 mt-1 truncate">{sysInfo.cpu}</p>

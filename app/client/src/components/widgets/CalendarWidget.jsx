@@ -18,7 +18,6 @@ const CalendarWidget = ({ calendars, setCalendars, hiddenCalendars, onToggleCale
                         setEvents(Array.isArray(data.items) ? data.items : []);
                         if (Array.isArray(data.calendars) && data.calendars.length > 0 && setCalendars) {
                             setCalendars(prev => {
-                                // Merge unique calendars
                                 const existingNames = new Set(prev.map(c => c.name));
                                 const updated = [...prev];
                                 data.calendars.forEach(c => {
@@ -45,19 +44,21 @@ const CalendarWidget = ({ calendars, setCalendars, hiddenCalendars, onToggleCale
     const visibleEvents = events.filter(evt => !evt.calendarName || !hiddenCalendars.includes(evt.calendarName));
 
     return (
-        <div className="glass-panel p-6 flex flex-col aspect-square">
-            <div className="flex justify-between items-center mb-2 border-b border-white/10 pb-3">
-                <h2 className="text-lg font-semibold text-white/80">Today's Schedule</h2>
+        <div className="glass-panel p-4 flex flex-col h-full w-full min-h-0 overflow-hidden">
+            <div className="flex justify-between items-center mb-1.5 border-b border-white/10 pb-2 shrink-0">
+                <h2 className="text-base font-semibold text-white/80">Today's Schedule</h2>
                 <span className="text-xs font-mono text-white/40">{visibleEvents.length} events</span>
             </div>
 
-            <CalendarFilterLegend calendars={calendars} hiddenCalendars={hiddenCalendars} onToggleCalendar={onToggleCalendar} />
+            <div className="shrink-0 mb-1">
+                <CalendarFilterLegend calendars={calendars} hiddenCalendars={hiddenCalendars} onToggleCalendar={onToggleCalendar} />
+            </div>
 
-            <div className="space-y-3 overflow-y-auto flex-1 hidden-scrollbar rounded-xl pr-1">
+            <div className="space-y-2 overflow-y-auto flex-1 min-h-0 hidden-scrollbar rounded-xl pr-1">
                 {loading ? (
-                    <p className="text-white/40 text-sm">Loading schedule...</p>
+                    <p className="text-white/40 text-xs">Loading schedule...</p>
                 ) : visibleEvents.length === 0 ? (
-                    <p className="text-white/40 text-sm">No upcoming events today.</p>
+                    <p className="text-white/40 text-xs">No upcoming events today.</p>
                 ) : (
                     visibleEvents.map((evt, i) => {
                         const startInfo = evt.start?.dateTime || evt.start?.date;
@@ -68,16 +69,16 @@ const CalendarWidget = ({ calendars, setCalendars, hiddenCalendars, onToggleCale
                         const badgeColor = evt.calendarColor || 'var(--accent-color)';
 
                         return (
-                            <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-4 transition-all duration-200" style={{ borderColor: badgeColor }}>
+                            <div key={i} className="flex flex-col p-2.5 bg-white/5 rounded-xl border-l-4 transition-all duration-200" style={{ borderColor: badgeColor }}>
                                 <div className="flex justify-between items-center gap-2">
-                                    <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
+                                    <span className="font-bold text-xs text-white/90 truncate">{evt.summary}</span>
                                     {evt.calendarName && (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 bg-white/10 text-white/70" style={{ color: badgeColor }}>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0 bg-white/10 text-white/70" style={{ color: badgeColor }}>
                                             {evt.calendarName}
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-white/50 text-xs mt-1">
+                                <span className="text-white/50 text-[11px] mt-0.5">
                                     {isDateOnly ? 'All Day' : `${startStr}${endStr ? ` - ${endStr}` : ''}`}
                                 </span>
                             </div>

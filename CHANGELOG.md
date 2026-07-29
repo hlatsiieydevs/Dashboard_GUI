@@ -1,9 +1,42 @@
 # Changelog
 
-All notable changes to the **Dashi_QuickView** project will be documented in this file.
+All notable changes to the **Dashi_QuickView / ProdBoard** project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [1.2.0] - 2026-07-30
+
+### Added
+- **Native Custom 2D Grid Engine**:
+  - Replaced legacy rigid column flow with a native 12-column x 12-row blueprint grid system.
+  - Added **Auto-Flow ON / OFF (Free Placement)** toggle in the top status bar.
+  - Added live mouse pointer cell snapping with viewport boundary clamping.
+  - Added glowing placement target indicators (**Green `✅ Clear Space`**, **Amber `🔄 Swap Positions`**).
+  - Added full coordinate range badges (**`R1-R3:C1-C3`**) to tile headers in Edit Mode.
+- **Collapsible Floating Widget Drawer**:
+  - Added a floating catalog drawer fixed at the bottom of the viewport during Edit Mode.
+  - Minimizable into a slim tab with a single click.
+  - Allows adding and removing any catalog widget (**Hero Clock**, **Calendar Focus**, **Upcoming Events**, **Weather Cluster**, **System Health**, **Blank Spacer**) dynamically.
+- **Hero Clock Enhancements**:
+  - Added togglable date display in 3-line format:
+    - Line 1: `HH:MM`
+    - Line 2: `<Day of the week>`
+    - Line 3: `<Day No.> <Month of the year> <Year>`
+  - Implemented vector SVG width-justification: all three lines stretch to the exact same visual width!
+  - Added font family selector (`Sans`, `Mono`, `Serif`, `Display`) and font size scaling in Edit Mode with `localStorage` persistence.
+- **Server Logging & HTTPS / SSL Support**:
+  - Added file logger in `app/server/logger.js` outputting timestamped logs to `./logs/dashboard-YYYY-MM-DD.log`.
+  - Added local HTTPS / SSL certificate loader (`certs/key.pem`, `certs/cert.pem`).
+
+### Changed
+- **Modular Widget Architecture**:
+  - Reorganized all dashboard widgets into `app/client/src/components/widgets/` with a centralized exporter registry (`index.js`).
+  - Set default widget placement sizes to their minimum compact W & H dimensions.
+  - Optimized internal paddings and scrollable flex containers (`min-h-0`) across all widgets to prevent text clipping.
+  - Removed date display from status bar header for a minimalist aesthetic.
 
 ---
 
@@ -17,23 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Color-coded badges displayed on events in "Today's Schedule" and "In the next few days" widgets.
   - Interactive `CalendarFilterLegend` widget allowing users to toggle individual calendar sources on/off.
 - **Resilient Parallel Fetching**:
-  - Backend calendar proxy now queries external calendar feeds concurrently using `Promise.allSettled` with individual request timeouts (6s). Offline or broken calendar links will no longer break the dashboard.
-  - Automatic event deduplication across multiple merged calendar sources.
-
-### Changed
-- **Frontend Architecture & Modularization**:
-  - Refactored monolithic `App.jsx` (640+ lines) into clean, maintainable React components under `app/client/src/components/`:
-    - `StatusBar.jsx`: Header bar displaying system version, live clock, current date, and latency ping.
-    - `HeroClock.jsx`: Main digital hero clock component.
-    - `CalendarWidget.jsx`: Today's schedule with color-coded event source tags.
-    - `UpcomingWidget.jsx`: 7-day chronological forecast list with physics-based auto-scroll and holiday indicators.
-    - `CalendarFilterLegend.jsx`: Interactive filter pills for toggling active calendar visibility.
-    - `WeatherWidgetsCluster.jsx`: Grouping temperature gauge, precipitation bar, wind compass, moon phase, and 24-hour forecast marquee.
-    - `SystemHealthWidget.jsx`: Real-time system load and memory utilization tracker.
-  - Extracted moon phase astronomical calculations into `src/utils/moonUtils.js`.
-
-### Removed
-- Cleaned up legacy temporary patch files (`patch_file.diff`, `patch_ui_tweaks.diff`, `patch_widget.diff`, `patch_widget2.diff`, `update_app.patch`, `App.jsx.orig`, `App.jsx.rej`).
+  - Backend calendar proxy queries external calendar feeds concurrently using `Promise.allSettled` with individual request timeouts.
 
 ---
 
@@ -43,4 +60,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of Dashi_QuickView ("Tinted Glass" single-screen dashboard).
 - Weather-reactive CSS accent color engine using OpenWeather API.
 - Native Google Calendar & South African Public Holidays iCal integration.
-- Hardware-optimized physics scrolling animations and low-overhead widgets.

@@ -21,4 +21,10 @@ node_modules/
 
 # Precompiled files
 precompiled/
-precompiled/
+
+# Local SSL Certs
+certs/
+*.pem
+
+# Server Logs
+logs/

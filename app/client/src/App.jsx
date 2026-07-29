@@ -1,645 +1,91 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useWeatherEnvironment } from './hooks/useWeatherEnvironment';
-import { Sun, Cloud, CloudRain, CloudLightning, Snowflake, Umbrella, Moon as MoonIcon, Sunrise, Sunset } from 'lucide-react';
-
-// --- Helpers ---
-function getMoonPhase(date) {
-    let year = date.getFullYear();
-    let month = date.getMonth() + 1;
-    let day = date.getDate();
-    if (month < 3) {
-        year--;
-        month += 12;
-    }
-    let a = Math.floor(year / 100);
-    let b = Math.floor(a / 4);
-    let c = 2 - a + b;
-    let e = Math.floor(365.25 * (year + 4716));
-    let f = Math.floor(30.6001 * (month + 1));
-    let jd = c + day + e + f - 1524.5;
-    let daysSinceNew = jd - 2451549.5;
-    let newMoons = daysSinceNew / 29.53;
-    let phase = newMoons - Math.floor(newMoons);
-    
-    if (phase < 0.03) return 'New Moon';
-    if (phase < 0.22) return 'Waxing Crescent';
-    if (phase < 0.28) return 'First Quarter';
-    if (phase < 0.47) return 'Waxing Gibbous';
-    if (phase < 0.53) return 'Full Moon';
-    if (phase < 0.72) return 'Waning Gibbous';
-    if (phase < 0.78) return 'Last Quarter';
-    if (phase < 0.97) return 'Waning Crescent';
-    return 'New Moon';
-}
-
-const MOON_PATHS = {
-    'New Moon': '',
-    'Waxing Crescent': 'M 50 5 A 45 45 0 0 1 50 95 A 25 45 0 0 0 50 5 Z',
-    'First Quarter': 'M 50 5 A 45 45 0 0 1 50 95 A 0 45 0 0 0 50 5 Z',
-    'Waxing Gibbous': 'M 50 5 A 45 45 0 0 1 50 95 A 25 45 0 0 1 50 5 Z',
-    'Full Moon': 'M 50 5 A 45 45 0 0 1 50 95 A 45 45 0 0 1 50 5 Z',
-    'Waning Gibbous': 'M 50 5 A 45 45 0 0 0 50 95 A 25 45 0 0 0 50 5 Z',
-    'Last Quarter': 'M 50 5 A 45 45 0 0 0 50 95 A 0 45 0 0 1 50 5 Z',
-    'Waning Crescent': 'M 50 5 A 45 45 0 0 0 50 95 A 25 45 0 0 1 50 5 Z'
-};
-
-function getMoonEventColor(phaseName, date) {
-    if (phaseName !== 'Full Moon') return null;
-    const month = date.getMonth() + 1; // 1-12
-    if (month === 4) return 'rgba(255, 182, 193, 0.4)'; // Pink Moon
-    if (month === 10) return 'rgba(220, 20, 60, 0.4)'; // Blood Moon
-    return null;
-}
+import StatusBar from './components/StatusBar';
+import HeroClock from './components/HeroClock';
+import CalendarWidget from './components/CalendarWidget';
+import UpcomingWidget from './components/UpcomingWidget';
+import WeatherWidgetsCluster from './components/WeatherWidgetsCluster';
+import SystemHealthWidget from './components/SystemHealthWidget';
 
 const App = () => {
     const { accentColor, weatherCode, bgImage, weatherData } = useWeatherEnvironment();
-    
+    const [calendars, setCalendars] = useState([]);
+    const [hiddenCalendars, setHiddenCalendars] = useState([]);
+
     useEffect(() => {
         document.documentElement.style.setProperty('--accent-color', accentColor);
     }, [accentColor]);
 
+    const handleToggleCalendar = (calendarName) => {
+        setHiddenCalendars(prev =>
+            prev.includes(calendarName)
+                ? prev.filter(name => name !== calendarName)
+                : [...prev, calendarName]
+        );
+    };
+
     return (
         <div className="relative w-screen h-screen flex flex-col p-6 transition-colors duration-1000 bg-black overflow-hidden">
             {/* Dynamic Background Image */}
-            <div 
-                className="absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-1000 opacity-60 pointer-events-none" 
-                style={{ backgroundImage: `url(${bgImage})` }} 
+            <div
+                className="absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-1000 opacity-60 pointer-events-none"
+                style={{ backgroundImage: `url(${bgImage})` }}
             />
             {/* Moody Vignette Gradient */}
-            <div 
+            <div
                 className="absolute inset-0 z-0 pointer-events-none"
-                style={{ 
-                    background: `radial-gradient(circle at top right, ${accentColor}44, transparent 70%), radial-gradient(circle at bottom left, ${accentColor}22, transparent 60%), radial-gradient(circle at center, transparent 30%, #000000ee 100%)` 
-                }} 
+                style={{
+                    background: `radial-gradient(circle at top right, ${accentColor}44, transparent 70%), radial-gradient(circle at bottom left, ${accentColor}22, transparent 60%), radial-gradient(circle at center, transparent 30%, #000000ee 100%)`
+                }}
             />
 
             {/* CSS Weather Overlays */}
             {weatherCode === 'Rain' && (
                 <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-40">
                     {[...Array(20)].map((_, i) => (
-                        <div key={i} className="particle-rain" style={{ 
-                            left: `${Math.random() * 100}vw`, 
+                        <div key={i} className="particle-rain" style={{
+                            left: `${Math.random() * 100}vw`,
                             animationDelay: `${Math.random() * 2}s`,
                             opacity: Math.random() * 0.5 + 0.1
                         }} />
                     ))}
                 </div>
             )}
-            
-            {/* macOS Style Status Bar - Added shrink-0 and robust flex handling */}
-            <header className="flex justify-between items-center px-4 py-2 w-full text-sm font-medium z-10 glass-panel mb-6 rounded-full shrink-0 relative">
-                <div className="flex items-center gap-3">
-                    <span className="text-white/90 font-bold tracking-wider uppercase text-xs">ProdBoard v0.1</span>
-                </div>
-                <div className="absolute left-1/2 -translate-x-1/2 font-medium text-white/80 text-sm tracking-wide">
-                    <DateHeader />
-                </div>
-                <div className="flex items-center gap-4">
-                    <PingStatus />
-                    <span className="text-white/80"><ClockHeader /></span>
-                </div>
-            </header>
+
+            {/* macOS Style Status Bar */}
+            <StatusBar />
 
             {/* Main Content Area */}
             <main className="flex-1 flex justify-between z-10 relative h-full">
-                
+
                 {/* Vertically Top-Aligned Hero Clock */}
                 <div className="absolute inset-x-0 top-0 pointer-events-none flex justify-center z-0">
                     <HeroClock />
                 </div>
 
-                {/* Left Side: Calendar Focus. Reduced width so it doesn't overlap center clock too much */}
+                {/* Left Side: Multi-Calendar Focus */}
                 <div className="w-[30%] min-w-[320px] flex flex-col gap-6 h-full pb-2">
-                    <CalendarWidget />
-                    <UpcomingWidget />
+                    <CalendarWidget
+                        calendars={calendars}
+                        setCalendars={setCalendars}
+                        hiddenCalendars={hiddenCalendars}
+                        onToggleCalendar={handleToggleCalendar}
+                    />
+                    <UpcomingWidget
+                        calendars={calendars}
+                        setCalendars={setCalendars}
+                        hiddenCalendars={hiddenCalendars}
+                    />
                 </div>
 
                 {/* Right Side: iOS Widget Clusters */}
                 <div className="w-[30%] min-w-[320px] max-w-[400px] flex flex-col gap-6 h-full pb-2 overflow-y-auto hidden-scrollbar pr-2">
                     <WeatherWidgetsCluster accentColor={accentColor} weatherData={weatherData} />
-                    <SystemHealth />
+                    <SystemHealthWidget />
                 </div>
             </main>
         </div>
     );
 };
 
-// --- Widget Components ---
-
-const WeatherWidgetsCluster = ({ accentColor, weatherData }) => {
-    if (!weatherData) return <div className="text-white/40 glass-panel p-4">Fetching Telemetry...</div>;
-
-    const { current, forecast } = weatherData;
-
-    // Get next 8 intervals (3 hours each) which equals 24 hours
-    const next24 = forecast && forecast.list ? forecast.list.slice(0, 8) : [];
-    
-    // Calculate true 24-hour min/max
-    const temp = Math.round(current.main.temp);
-    const minTemp = Math.round(Math.min(current.main.temp_min, ...next24.map(item => item.main.temp_min)));
-    const maxTemp = Math.round(Math.max(current.main.temp_max, ...next24.map(item => item.main.temp_max)));
-
-    // Probability of precipitation from next 24 hour block
-    const popRaw = next24.length > 0 ? Math.max(...next24.map(item => item.pop || 0)) : 0;
-    const pop = Math.round(popRaw * 100);
-    
-    // Wind properties
-    const windSpeed = Math.round(current.wind.speed * 3.6); // Convert m/s to km/h
-    const windDeg = current.wind.deg || 0;
-    
-    // Moon Phase calculation
-    const moonPhaseStr = getMoonPhase(new Date());
-
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="glass-panel p-3 px-5 w-fit border-white/20 shadow-md">
-                <div className="text-white/90 font-bold text-lg tracking-wider capitalize">{current.name}</div>
-            </div>
-            
-            {/* 4 Small iOS Widgets grid */}
-            <div className="grid grid-cols-2 gap-4">
-                <BaseWidget>
-                    <TempGaugeWidget current={temp} min={minTemp} max={maxTemp} accentColor={accentColor} />
-                </BaseWidget>
-
-                <BaseWidget>
-                    <PrecipWidget pop={pop} accentColor={accentColor} />
-                </BaseWidget>
-                
-                <BaseWidget>
-                    <WindCompassWidget speed={windSpeed} deg={windDeg} accentColor={accentColor} />
-                </BaseWidget>
-
-                <BaseWidget>
-                    <MoonPhaseWidget phaseName={moonPhaseStr} accentColor={accentColor} />
-                </BaseWidget>
-            </div>
-
-            {/* 1 Medium Widget: Scrolling 24-Hour Forecast */}
-            <div className="glass-panel p-4 flex flex-col justify-center overflow-hidden">
-                <div className="text-white/60 font-medium tracking-wide text-xs uppercase mb-3 border-b border-white/10 pb-2 shrink-0">24-Hour Forecast</div>
-                <div className="flex items-center overflow-hidden relative w-full mask-edges">
-                    <div className="flex items-center animate-marquee will-change-transform gap-8 pr-8">
-                        {/* Render array twice to create a seamless infinite CSS loop */}
-                        {[...next24, ...next24].map((item, i) => (
-                            <ForecastItem key={i} item={item} accentColor={accentColor} />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const BaseWidget = ({ children }) => (
-    <div className="glass-panel p-2 aspect-square flex flex-col items-center justify-center relative overflow-hidden">
-        {children}
-    </div>
-);
-
-// Radial Temperature Gauge
-const TempGaugeWidget = ({ current, min, max, accentColor }) => {
-    const range = (max - min) || 1;
-    const progress = Math.max(0, Math.min(1, (current - min) / range));
-    
-    const r = 38;
-    const c = 2 * Math.PI * r;
-    const arcLength = c * 0.666; // 240 degree arc
-    
-    // Rotation mapping for marker:
-    // Guage is rotated 150deg. Sweeps 240 deg (150 to 390).
-    const angleRange = 240;
-    const markerAngle = 150 + (progress * angleRange);
-    const markerRad = (markerAngle * Math.PI) / 180;
-    const markerX = 50 + r * Math.cos(markerRad);
-    const markerY = 50 + r * Math.sin(markerRad);
-
-    return (
-        <div className="flex flex-col items-center justify-center w-full h-full relative">
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none" style={{ transform: 'rotate(150deg)' }}>
-               {/* Track */}
-               <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" strokeDasharray={`${arcLength} ${c}`} strokeLinecap="round" />
-               {/* Active Segment Fill */}
-               <circle cx="50" cy="50" r={r} fill="none" stroke={accentColor} strokeWidth="8" strokeDasharray={`${progress * arcLength} ${c}`} strokeLinecap="round" className="transition-all duration-1000 origin-center" />
-            </svg>
-            
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                {/* Marker Tracker Dot */}
-                <circle cx={markerX} cy={markerY} r="3" fill="white" className="drop-shadow-md transition-all duration-1000" />
-            </svg>
-            
-            <div className="flex flex-col items-center z-10">
-                <span className="font-black tracking-tighter leading-none" style={{ color: accentColor, fontSize: '3rem' }}>{current}°</span>
-            </div>
-            
-            <div className="absolute bottom-3 left-0 right-0 flex justify-between px-[1.25rem] font-medium z-10 w-full pointer-events-none" style={{ fontSize: '15px' }}>
-                <span className="text-blue-400">{min}°</span>
-                <span className="text-red-400">{max}°</span>
-            </div>
-        </div>
-    );
-};
-
-// Wind Compass
-const WindCompassWidget = ({ speed, deg, accentColor }) => {
-    return (
-        <div className="flex flex-col items-center justify-center w-full h-full relative">
-             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full text-white/20">
-                 <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="1 5" />
-                 <text x="50" y="22" fill="white" fontSize="9" textAnchor="middle" opacity="0.6">N</text>
-                 <text x="50" y="85" fill="white" fontSize="9" textAnchor="middle" opacity="0.6">S</text>
-                 <text x="15" y="53" fill="white" fontSize="9" textAnchor="middle" opacity="0.6">W</text>
-                 <text x="85" y="53" fill="white" fontSize="9" textAnchor="middle" opacity="0.6">E</text>
-             </svg>
-             <div className="absolute inset-0 w-full h-full transition-transform duration-1000 z-10" style={{ transform: `rotate(${deg}deg)` }}>
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 pt-0.5 drop-shadow-[0_0_5px_rgba(255,255,255,0.4)]">
-                      <svg width="14" height="15" viewBox="0 0 14 15">
-                          <path d="M7 0 L14 15 L7 11 L0 15 Z" fill={accentColor} />
-                      </svg>
-                  </div>
-             </div>
-             <div className="flex flex-col items-center justify-center rounded-full w-14 h-14 bg-black/50 border border-white/10 z-20 shadow-xl backdrop-blur-md">
-                 <span className="font-bold text-lg leading-none">{speed}</span>
-                 <span className="text-[8px] text-white/50 leading-tight uppercase font-medium mt-0.5">km/h</span>
-             </div>
-        </div>
-    );
-};
-
-// Precipitation Bar
-const PrecipWidget = ({ pop, accentColor }) => {
-    return (
-        <div className="flex flex-col items-center justify-center w-full h-full px-4 py-2">
-            <Umbrella size={26} color={accentColor} className="mb-2 opacity-90 drop-shadow-md" />
-            <div className="text-2xl font-black mb-1 leading-none">{pop}%</div>
-            <div className="w-full h-[6px] bg-white/10 rounded-full mt-2 overflow-hidden shrink-0">
-                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pop}%`, backgroundColor: accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
-            </div>
-            <div className="text-[10px] text-white/40 uppercase tracking-widest mt-2">{pop > 50 ? 'Likely' : 'Unlikely'}</div>
-        </div>
-    );
-};
-
-// SVG Moon Widget
-const MoonPhaseWidget = ({ phaseName }) => {
-    const p = MOON_PATHS[phaseName] || '';
-    const moonTint = getMoonEventColor(phaseName, new Date());
-
-    return (
-        <div className="flex flex-col items-center justify-center w-full h-full relative p-2">
-            <svg viewBox="0 0 100 100" className="w-[85%] h-[85%] drop-shadow-lg mb-4">
-                <defs>
-                    {/* The mask defining the visible phase */}
-                    <mask id="moonPhaseMask">
-                        {/* Background circle hides the unlit part (black) */}
-                        <circle cx="50" cy="50" r="45" fill="black" />
-                        {/* The sunlit path is white (visible) */}
-                        {p && <path d={p} fill="white" />}
-                    </mask>
-
-                    <filter id="moonShading">
-                        {/* Make grayscale, adjust contrast */}
-                        <feColorMatrix type="matrix" values="
-                              0.33 0.33 0.33 0 0
-                              0.33 0.33 0.33 0 0
-                              0.33 0.33 0.33 0 0
-                              0    0    0    1 0" />
-                        <feComponentTransfer>
-                            <feFuncR type="linear" slope="1.05" intercept="0"/>
-                            <feFuncG type="linear" slope="1.05" intercept="0"/>
-                            <feFuncB type="linear" slope="1.05" intercept="0"/>
-                        </feComponentTransfer>
-                    </filter>
-
-                    <filter id="moonDark">
-                        {/* Make grayscale and very dark (earthshine) */}
-                        <feColorMatrix type="matrix" values="
-                              0.33 0.33 0.33 0 0
-                              0.33 0.33 0.33 0 0
-                              0.33 0.33 0.33 0 0
-                              0    0    0    1 0" />
-                        <feComponentTransfer>
-                            <feFuncR type="linear" slope="0.15" intercept="0"/>
-                            <feFuncG type="linear" slope="0.15" intercept="0"/>
-                            <feFuncB type="linear" slope="0.15" intercept="0"/>
-                        </feComponentTransfer>
-                    </filter>
-                </defs>
-
-                {/* Base Image rendered very dark to represent the unlit side */}
-                <image
-                    href="/realistic_full_moon.png"
-                    x="5" y="5"
-                    width="90" height="90"
-                    filter="url(#moonDark)"
-                />
-
-                {/* The masked overlay rendering only the active phase */}
-                <g mask="url(#moonPhaseMask)">
-                    <image
-                        href="/realistic_full_moon.png"
-                        x="5" y="5"
-                        width="90" height="90"
-                        filter="url(#moonShading)"
-                    />
-                    {/* Add tinting for special moon events */}
-                    <rect x="0" y="0" width="100" height="100" fill={moonTint} style={{ mixBlendMode: 'overlay', opacity: 0.6 }} />
-                </g>
-                
-                {/* Outer styling ring */}
-                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-            </svg>
-            <div className="absolute bottom-3 text-[10px] font-medium text-white/60 text-center w-full px-1 leading-tight whitespace-pre-wrap">{phaseName}</div>
-        </div>
-    );
-};
-
-
-const ForecastItem = ({ item, accentColor }) => {
-    const time = new Date(item.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const temp = Math.round(item.main.temp);
-    const condition = item.weather[0].main;
-    const dt = item.dt;
-    
-    // For Night/Sunrise/Sunset checks, we use sys.pod indicating 'd' (day) or 'n' (night) directly in 3-hour forecasts from OpenWeather API
-    const pod = item.sys?.pod || 'd'; 
-    
-    let Icon = Cloud;
-    
-    // Sunrise / Sunset logic approximation based on hour of day
-    const hour = new Date(dt * 1000).getHours();
-    
-    if (hour >= 5 && hour <= 7) {
-        Icon = Sunrise;
-    } else if (hour >= 17 && hour <= 19) {
-        Icon = Sunset;
-    } else {
-        if (condition === 'Clear') Icon = pod === 'n' ? MoonIcon : Sun;
-        else if (condition === 'Rain' || condition === 'Drizzle') Icon = CloudRain;
-        else if (condition === 'Thunderstorm') Icon = CloudLightning;
-        else if (condition === 'Snow') Icon = Snowflake;
-    }
-
-    return (
-        <div className="flex flex-col items-center z-10 shrink-0 min-w-[3rem]">
-            <span className="text-xs text-white/60 mb-2 truncate">{time}</span>
-            <Icon size={20} style={{color: 'var(--accent-color)'}} className="mb-2" />
-            <span className="text-sm font-bold">{temp}°</span>
-        </div>
-    );
-};
-
-
-const HeroClock = () => {
-    const [time, setTime] = useState(new Date());
-    
-    useEffect(() => {
-        const timer = setInterval(() => setTime(new Date()), 1000); 
-        return () => clearInterval(timer);
-    }, []);
-
-    return (
-        <div className="glass-panel p-10 flex flex-col justify-center items-center pointer-events-auto w-fit mx-auto">
-            <h1 className="text-8xl font-black tracking-tighter leading-none" style={{ color: 'var(--accent-color)' }}>
-                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-            </h1>
-        </div>
-    );
-};
-
-const CalendarWidget = () => {
-    const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [disabled, setDisabled] = useState(false);
-
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                const res = await fetch('/api/calendar/today');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.disabled) {
-                        setDisabled(true);
-                    } else {
-                        setEvents(Array.isArray(data.items) ? data.items : []);
-                    }
-                }
-            } catch (err) {
-                console.error('Calendar error:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchEvents();
-        const interval = setInterval(fetchEvents, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    if (disabled) return null; 
-
-    return (
-        <div className="glass-panel p-6 flex flex-col aspect-square">
-            <h2 className="text-lg font-semibold mb-4 text-white/80 border-b border-white/10 pb-3">Today's Schedule</h2>
-            <div className="space-y-3 overflow-y-auto flex-1 hidden-scrollbar rounded-xl pr-1">
-                {loading ? <p className="text-white/40 text-sm">Loading schedule...</p> : 
-                 events.length === 0 ? <p className="text-white/40 text-sm">No upcoming events today.</p> :
-                 events.map((evt, i) => {
-                    const startInfo = evt.start.dateTime || evt.start.date;
-                    const endInfo = evt.end?.dateTime || evt.end?.date;
-                    const startStr = new Date(startInfo).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false });
-                    const endStr = endInfo ? new Date(endInfo).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false }) : '';
-                    return (
-                        <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-2" style={{ borderColor: 'var(--accent-color)' }}>
-                            <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
-                            <span className="text-white/50 text-xs mt-1">
-                                {startStr}{endStr ? ` - ${endStr}` : ''}
-                            </span>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-const UpcomingWidget = () => {
-    const [events, setEvents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [disabled, setDisabled] = useState(false);
-    const scrollContainerRef = useRef(null);
-
-    useEffect(() => {
-        const fetchEvents = async () => {
-            try {
-                const res = await fetch('/api/calendar/upcoming');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.disabled) {
-                        setDisabled(true);
-                    } else {
-                        setEvents(Array.isArray(data.items) ? data.items : []);
-                    }
-                }
-            } catch (err) {
-                console.error('Upcoming calendar error:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchEvents();
-        const interval = setInterval(fetchEvents, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
-        if (!scrollContainerRef.current || events.length === 0) return;
-        let animationId;
-        let scrollPos = 0;
-        let direction = 1;
-
-        const animateScroll = () => {
-            const el = scrollContainerRef.current;
-            if (!el) return;
-            const maxScroll = el.scrollHeight - el.clientHeight;
-            if (maxScroll > 0) {
-                scrollPos += direction * 0.3; // Speed
-                if (scrollPos >= maxScroll + 50) {
-                    scrollPos = maxScroll + 50; 
-                    direction = -1;
-                } else if (scrollPos <= -50) {
-                    scrollPos = -50;
-                    direction = 1;
-                }
-                el.scrollTop = Math.max(0, Math.min(scrollPos, maxScroll));
-            }
-            animationId = requestAnimationFrame(animateScroll);
-        };
-        setTimeout(() => { animationId = requestAnimationFrame(animateScroll); }, 2000);
-        return () => cancelAnimationFrame(animationId);
-    }, [events]);
-
-    if (disabled) return null; 
-
-    return (
-        <div className="glass-panel p-6 flex flex-col flex-1 overflow-hidden min-h-[300px]">
-             <h2 className="text-lg font-semibold mb-4 text-white/80 border-b border-white/10 pb-3 shrink-0">In the next few days</h2>
-             <div className="flex-1 overflow-hidden relative w-full h-full mask-edges-vertical">
-                <div ref={scrollContainerRef} className="h-full overflow-y-auto hidden-scrollbar pb-6 space-y-3">
-                    {loading ? <p className="text-white/40 text-sm">Loading upcoming...</p> : 
-                     events.length === 0 ? <p className="text-white/40 text-sm">No upcoming events this week.</p> :
-                     events.map((evt, i) => {
-                        const startInfo = evt.start?.dateTime || evt.start?.date;
-                        const startDate = new Date(startInfo);
-                        const isDateOnly = !evt.start?.dateTime;
-                        
-                        const dayStr = startDate.toLocaleDateString('en-ZA', { weekday: 'short', month: 'short', day: 'numeric' });
-                        let timeStr = 'All Day';
-                        
-                        if (!isDateOnly && evt.start?.dateTime) {
-                            const endInfo = evt.end?.dateTime || evt.end?.date;
-                            const startT = startDate.toLocaleTimeString('en-ZA', { hour: '2-digit', minute:'2-digit', hour12: false });
-                            const endT = endInfo ? new Date(endInfo).toLocaleTimeString('en-ZA', { hour: '2-digit', minute:'2-digit', hour12: false }) : '';
-                            timeStr = `${startT}${endT ? ` - ${endT}` : ''}`;
-                        }
-                        
-                        return (
-                            <div key={i} className="flex flex-col p-3 bg-white/5 rounded-xl border-l-2 shrink-0 relative" style={{ borderColor: evt.isHoliday ? '#f59e0b' : 'var(--accent-color)' }}>
-                                <span className="font-bold text-sm text-white/90 truncate">{evt.summary}</span>
-                                <div className="flex justify-between mt-1 items-center">
-                                    <span className="text-white/50 text-xs">{dayStr}</span>
-                                    <span className="text-white/40 text-xs">{timeStr}</span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const SystemHealth = () => {
-    const [sysInfo, setSysInfo] = useState({ cpu: 'Loading...', status: 'Checking' });
-
-    useEffect(() => {
-        const fetchSys = async () => {
-            try {
-                const res = await fetch('/api/system');
-                if (res.ok) {
-                    const data = await res.json();
-                    let status = 'Nominal';
-                    if (data.memory && data.memory.usagePercent > 90) status = 'High Load';
-                    setSysInfo({ cpu: data.cpu, status: status });
-                } else {
-                    setSysInfo({ cpu: 'Unknown', status: 'Offline' });
-                }
-            } catch (err) {
-                setSysInfo({ cpu: 'Unknown', status: 'Error' });
-            }
-        };
-        fetchSys();
-        const interval = setInterval(fetchSys, 60 * 1000);
-        return () => clearInterval(interval);
-    }, []);
-
-    return (
-        <div className="glass-panel p-5 flex flex-col justify-between shrink-0">
-             <h3 className="text-white/60 font-medium tracking-wide text-xs uppercase">System</h3>
-             <div className="text-xl font-bold mt-2 truncate" style={{ color: 'var(--accent-color)' }}>{sysInfo.status}</div>
-             <p className="text-xs text-white/40 mt-1 truncate">{sysInfo.cpu}</p>
-        </div>
-    );
-};
-
-const PingStatus = () => {
-    const [statusColor, setStatusColor] = useState('#64748B'); 
-    const [ping, setPing] = useState('--');
-
-    useEffect(() => {
-        const checkPing = async () => {
-            try {
-                const res = await fetch('/api/network/ping');
-                if (res.ok) {
-                    const data = await res.json();
-                    switch(data.status) {
-                        case 'Green': setStatusColor('#22C55E'); break;
-                        case 'Amber': setStatusColor('#F59E0B'); break;
-                        case 'Red': setStatusColor('#EF4444'); break;
-                        default: setStatusColor('#64748B');
-                    }
-                    setPing(`${Math.round(data.time)}ms`);
-                }
-            } catch (e) {}
-        };
-        checkPing();
-        const interval = setInterval(checkPing, 60000); 
-        return () => clearInterval(interval);
-    }, []);
-
-    return (
-        <div className="flex items-center gap-2 text-xs font-mono bg-black/40 px-3 py-1 rounded-full border border-white/5">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusColor, boxShadow: `0 0 8px ${statusColor}` }} />
-            <span className="text-white/60">{ping}</span>
-        </div>
-    );
-};
-
-const ClockHeader = () => {
-    const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-    useEffect(() => {
-        const timer = setInterval(() => setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })), 1000);
-        return () => clearInterval(timer);
-    }, []);
-    return <span>{time}</span>;
-};
-
 export default App;
-
-const DateHeader = () => {
-    const [date, setDate] = useState(new Date());
-    useEffect(() => {
-        const timer = setInterval(() => setDate(new Date()), 60000);
-        return () => clearInterval(timer);
-    }, []);
-    return <span>{date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>;
-};

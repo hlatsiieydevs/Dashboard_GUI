@@ -94,189 +94,190 @@ app.get('/api/background', async (req, res) => {
     }
 });
 
-// 3. Google Calendar Proxy (Support for SA, iCal, or None)
+// --- Multi-Calendar Parsing Helpers ---
+const PALETTE = ['#3b82f6', '#10b981', '#a855f7', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
+
+function parseCalendarConfigs() {
+    const mode = process.env.CALENDAR_MODE || 'ical';
+    if (mode === 'none') return [];
+
+    let rawEntries = [];
+    if (mode === 'ical') {
+        const envVal = process.env.CALENDAR_ICAL_URLS || process.env.CALENDAR_ICAL_URL || '';
+        if (envVal && envVal !== 'your_public_ical_url_here') {
+            rawEntries = envVal.split(',').map(s => s.trim()).filter(Boolean);
+        }
+    } else if (mode === 'service_account') {
+        const envVal = process.env.CALENDAR_IDS || process.env.CALENDAR_ID || '';
+        if (envVal && envVal !== 'your_google_calendar_id_here') {
+            rawEntries = envVal.split(',').map(s => s.trim()).filter(Boolean);
+        }
+    }
+
+    return rawEntries.map((entry, idx) => {
+        const parts = entry.split('|').map(p => p.trim());
+        let name, location, color;
+        if (parts.length >= 3) {
+            name = parts[0];
+            location = parts[1];
+            color = parts[2];
+        } else if (parts.length === 2) {
+            name = parts[0];
+            location = parts[1];
+            color = PALETTE[idx % PALETTE.length];
+        } else {
+            location = parts[0];
+            name = `Calendar ${idx + 1}`;
+            color = PALETTE[idx % PALETTE.length];
+        }
+        return { id: `cal_${idx}`, name, location, color, mode };
+    });
+}
+
+async function fetchICalFeed(config, startTime, endTime) {
+    const response = await axios.get(config.location, { responseType: 'text', timeout: 6000 });
+    const events = await ical.async.parseICS(response.data);
+    const parsed = [];
+
+    for (const k in events) {
+        if (events.hasOwnProperty(k) && events[k].type === 'VEVENT') {
+            const ev = events[k];
+            const startDate = new Date(ev.start);
+            const endDate = ev.end ? new Date(ev.end) : startDate;
+            const isDateOnly = !!ev.start.dateOnly;
+
+            if (startDate >= startTime && startDate <= endTime) {
+                parsed.push({
+                    summary: ev.summary || 'Untitled Event',
+                    start: isDateOnly ? { date: startDate.toISOString().split('T')[0] } : { dateTime: startDate.toISOString() },
+                    end: isDateOnly ? { date: endDate.toISOString().split('T')[0] } : { dateTime: endDate.toISOString() },
+                    calendarName: config.name,
+                    calendarColor: config.color,
+                    isHoliday: !!config.isHoliday
+                });
+            }
+        }
+    }
+    return parsed;
+}
+
+async function fetchGoogleCalendarFeed(config, startTime, endTime) {
+    const keyPath = process.env.SERVICE_ACCOUNT_PATH;
+    const auth = new google.auth.GoogleAuth({
+        keyFile: keyPath,
+        scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+    });
+
+    const calendar = google.calendar({ version: 'v3', auth });
+    const response = await calendar.events.list({
+        calendarId: config.location,
+        timeMin: startTime.toISOString(),
+        timeMax: endTime.toISOString(),
+        maxResults: 100,
+        singleEvents: true,
+        orderBy: 'startTime',
+    });
+
+    const items = response.data.items || [];
+    return items.map(item => ({
+        summary: item.summary || 'Untitled Event',
+        start: item.start,
+        end: item.end,
+        calendarName: config.name,
+        calendarColor: config.color,
+        isHoliday: !!config.isHoliday
+    }));
+}
+
+async function fetchAllCalendarsForRange(startTime, endTime, includeHolidays = true) {
+    const configs = parseCalendarConfigs();
+    if (includeHolidays) {
+        const holidayUrl = process.env.HOLIDAY_ICAL_URL || 'https://calendar.google.com/calendar/ical/en.sa%23holiday%40group.v.calendar.google.com/public/basic.ics';
+        configs.push({
+            id: 'cal_holiday',
+            name: 'SA Holidays',
+            location: holidayUrl,
+            color: '#f59e0b',
+            mode: 'ical',
+            isHoliday: true
+        });
+    }
+
+    const promises = configs.map(config => {
+        if (config.mode === 'ical') {
+            return fetchICalFeed(config, startTime, endTime);
+        } else {
+            return fetchGoogleCalendarFeed(config, startTime, endTime);
+        }
+    });
+
+    const results = await Promise.allSettled(promises);
+    let allEvents = [];
+    results.forEach((res, idx) => {
+        if (res.status === 'fulfilled') {
+            allEvents = allEvents.concat(res.value);
+        } else {
+            console.error(`Calendar fetch failed for [${configs[idx].name}]:`, res.reason?.message || res.reason);
+        }
+    });
+
+    // Deduplicate by summary + start time
+    const seen = new Set();
+    const uniqueEvents = [];
+    for (const evt of allEvents) {
+        const startKey = evt.start?.dateTime || evt.start?.date;
+        const dedupeKey = `${evt.summary}_${startKey}`;
+        if (!seen.has(dedupeKey)) {
+            seen.add(dedupeKey);
+            uniqueEvents.push(evt);
+        }
+    }
+
+    // Chronological sort
+    uniqueEvents.sort((a, b) => {
+        const dateA = new Date(a.start?.dateTime || a.start?.date);
+        const dateB = new Date(b.start?.dateTime || b.start?.date);
+        return dateA - dateB;
+    });
+
+    const activeCalendars = configs.map(c => ({ name: c.name, color: c.color, isHoliday: !!c.isHoliday }));
+    return { items: uniqueEvents, calendars: activeCalendars };
+}
+
+// 3. Google / iCal Multi-Calendar Proxy - Today's Events
 app.get('/api/calendar/today', async (req, res) => {
     try {
-        const mode = process.env.CALENDAR_MODE || 'service_account';
-
+        const mode = process.env.CALENDAR_MODE || 'ical';
         if (mode === 'none') {
-            return res.json({ disabled: true, items: [] });
+            return res.json({ disabled: true, items: [], calendars: [] });
         }
 
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-        // --- iCAL URL MODE ---
-        if (mode === 'ical') {
-            const url = process.env.CALENDAR_ICAL_URL;
-            if (!url || url === 'your_public_ical_url_here') {
-                return res.status(400).json({ error: "Missing CALENDAR_ICAL_URL in .env" });
-            }
-
-            // Using axios because native fetch in Node 18+ (which node-ical's fromURL uses internally)
-            // fails trying to use IPv6 in some docker configurations.
-            const response = await axios.get(url, { responseType: 'text' });
-            const events = await ical.async.parseICS(response.data);
-            let todayEvents = [];
-
-            for (const k in events) {
-                if (events.hasOwnProperty(k)) {
-                    const ev = events[k];
-                    if (ev.type === 'VEVENT') {
-                        // Check if event starts today
-                        const startDate = new Date(ev.start);
-                        const endDate = ev.end ? new Date(ev.end) : startDate;
-                        if (startDate >= startOfDay && startDate <= endOfDay) {
-                            todayEvents.push({
-                                summary: ev.summary,
-                                start: { dateTime: startDate.toISOString() },
-                                end: { dateTime: endDate.toISOString() }
-                            });
-                        }
-                    }
-                }
-            }
-            
-            // Sort by start time and limit to 5
-            todayEvents.sort((a,b) => new Date(a.start.dateTime) - new Date(b.start.dateTime));
-            return res.json({ items: todayEvents });
-        }
-
-        // --- SERVICE ACCOUNT MODE ---
-        const calendarId = process.env.CALENDAR_ID;
-        const keyPath = process.env.SERVICE_ACCOUNT_PATH;
-
-        if (!calendarId || calendarId === 'your_google_calendar_id_here') {
-             return res.status(400).json({ error: "Missing CALENDAR_ID in .env" });
-        }
-
-        // Initialize Google Auth client
-        const auth = new google.auth.GoogleAuth({
-            keyFile: keyPath,
-            scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth });
-
-        const response = await calendar.events.list({
-            calendarId: calendarId,
-            timeMin: startOfDay.toISOString(),
-            timeMax: endOfDay.toISOString(),
-            maxResults: 100,
-            singleEvents: true,
-            orderBy: 'startTime',
-        });
-
-        return res.json({ items: response.data.items || [] });
+        const data = await fetchAllCalendarsForRange(startOfDay, endOfDay, false);
+        return res.json(data);
     } catch (error) {
-        console.error('Calendar API Error:', error.stack || error.message);
-        if (error.message && error.message.includes('404')) {
-             console.error('Hint: A 404 indicates the Calendar URL is incorrect or the calendar is not set to "Public" in Google Calendar settings.');
-        }
-        res.status(500).json({ error: 'Failed to fetch calendar data. Please verify the URL and ensure the calendar is public.' });
+        console.error('Calendar Today API Error:', error.stack || error.message);
+        res.status(500).json({ error: 'Failed to fetch today calendar data.' });
     }
 });
 
-// 4. Google Calendar Proxy - Upcoming 7 Days (Includes SA Public Holidays)
+// 4. Google / iCal Multi-Calendar Proxy - Upcoming 7 Days
 app.get('/api/calendar/upcoming', async (req, res) => {
     try {
-        const mode = process.env.CALENDAR_MODE || 'service_account';
-
+        const mode = process.env.CALENDAR_MODE || 'ical';
         if (mode === 'none') {
-            return res.json({ disabled: true, items: [] });
+            return res.json({ disabled: true, items: [], calendars: [] });
         }
 
         const now = new Date();
         const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         const endOfPeriod = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59);
 
-        let upcomingEvents = [];
-
-        // 1. Fetch SA Public Holidays
-        try {
-            const holidayUrl = 'https://calendar.google.com/calendar/ical/en.sa%23holiday%40group.v.calendar.google.com/public/basic.ics';
-            const holidayRes = await axios.get(holidayUrl, { responseType: 'text' });
-            const holidayEvents = await ical.async.parseICS(holidayRes.data);
-            
-            for (const k in holidayEvents) {
-                if (holidayEvents[k].type === 'VEVENT') {
-                    const ev = holidayEvents[k];
-                    const startDate = new Date(ev.start);
-                    // Include holidays from tomorrow up to endOfPeriod
-                    if (startDate >= startOfTomorrow && startDate <= endOfPeriod) {
-                        upcomingEvents.push({
-                            summary: ev.summary,
-                            start: { date: startDate.toISOString().split('T')[0] }, // Emulate full-day format
-                            isHoliday: true
-                        });
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch SA Holidays:', err.message);
-        }
-
-        // --- iCAL URL MODE ---
-        if (mode === 'ical') {
-            const url = process.env.CALENDAR_ICAL_URL;
-            if (url && url !== 'your_public_ical_url_here') {
-                const response = await axios.get(url, { responseType: 'text' });
-                const events = await ical.async.parseICS(response.data);
-
-                for (const k in events) {
-                    if (events.hasOwnProperty(k)) {
-                        const ev = events[k];
-                        if (ev.type === 'VEVENT') {
-                            const startDate = new Date(ev.start);
-                            const endDate = ev.end ? new Date(ev.end) : startDate;
-                            const isDateOnly = ev.start.dateOnly;
-                            // Only include events starting from tomorrow up to the 7-day period
-                            if (startDate >= startOfTomorrow && startDate <= endOfPeriod) {
-                                upcomingEvents.push({
-                                    summary: ev.summary,
-                                    start: isDateOnly ? { date: startDate.toISOString().split('T')[0] } : { dateTime: startDate.toISOString() },
-                                    end: isDateOnly ? { date: endDate.toISOString().split('T')[0] } : { dateTime: endDate.toISOString() }
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-             // --- SERVICE ACCOUNT MODE ---
-             const calendarId = process.env.CALENDAR_ID;
-             const keyPath = process.env.SERVICE_ACCOUNT_PATH;
-             if (calendarId && calendarId !== 'your_google_calendar_id_here') {
-                 const auth = new google.auth.GoogleAuth({
-                     keyFile: keyPath,
-                     scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-                 });
-         
-                 const calendar = google.calendar({ version: 'v3', auth });
-                 const response = await calendar.events.list({
-                     calendarId: calendarId,
-                     timeMin: startOfTomorrow.toISOString(),
-                     timeMax: endOfPeriod.toISOString(),
-                     maxResults: 100,
-                     singleEvents: true,
-                     orderBy: 'startTime',
-                 });
-                 if (response.data.items) {
-                    upcomingEvents = upcomingEvents.concat(response.data.items);
-                 }
-             }
-        }
-
-        // Sort by start time chronologically
-        upcomingEvents.sort((a,b) => {
-            const dateA = new Date(a.start?.dateTime || a.start?.date);
-            const dateB = new Date(b.start?.dateTime || b.start?.date);
-            return dateA - dateB;
-        });
-
-        return res.json({ items: upcomingEvents });
-
+        const data = await fetchAllCalendarsForRange(startOfTomorrow, endOfPeriod, true);
+        return res.json(data);
     } catch (error) {
         console.error('Calendar Upcoming API Error:', error.stack || error.message);
         res.status(500).json({ error: 'Failed to fetch upcoming calendar data.' });

@@ -6,66 +6,78 @@ This project is a high-fidelity, single-screen dashboard. It merges the aestheti
 
 ### Key Features
 * **Dynamic Monochromatic UI:** Generates its CSS "Accent Color" based on backend-managed environmental weather conditions.
-* **Intelligent Calendar Integration:** 
+* **Multi-Calendar Integration & Filtering:** 
+  * Support for adding **multiple calendars** (iCal feeds or Google Calendar IDs).
+  * Color-coded event badges for distinct calendar sources (e.g., Work, Personal, Family).
+  * Interactive **Calendar Filter Legend** to toggle specific calendars on/off.
   * "Today's Schedule" for immediate events.
-  * "In the next few days" widget with a 7-day chronological forecast and a custom physics-based auto-scrolling animation.
-  * Native merging of custom Google Calendar data seamlessly with **South African Public Holidays**.
-* **Real-time System Health:** Dynamically polls the host OS via Node.js to display accurate CPU architecture details and actively tracks RAM load (shifting to "High Load" alerts boundaries visually if memory utilization exceeds 90%).
+  * "In the next few days" widget with a 7-day chronological forecast and custom physics-based auto-scrolling.
+  * Native merging of custom calendars seamlessly with **South African Public Holidays**.
+* **Resilient Parallel Fetching:** Backend fetches all configured calendar feeds concurrently with individual 6-second timeouts and automatic deduplication.
+* **Real-time System Health:** Dynamically polls host OS telemetry to track CPU details and memory load (shifting to "High Load" alert boundaries if utilization exceeds 90%).
 * **Optimized Networking:** Automatically resolves common IPv6 Docker fetch timeouts dynamically via IPv4 bindings.
 
-### Architecture
-* **Frontend:** React 19 + Tailwind CSS 3.4
-* **Backend:** Express.js Proxy Server
-* **Docker:** Multi-stage `Dockerfile` and `docker-compose.yml` to orchestrate isolated environments.
+### Architecture & Project Structure
+* **Frontend:** React 19 + Tailwind CSS 3.4 (Modular Component Architecture)
+  * `src/components/StatusBar.jsx`: Top macOS-style status header with live clock, date, and latency ping.
+  * `src/components/HeroClock.jsx`: Large digital hero clock widget.
+  * `src/components/CalendarWidget.jsx`: Today's schedule with multi-calendar tags.
+  * `src/components/UpcomingWidget.jsx`: Auto-scrolling 7-day forecast widget.
+  * `src/components/CalendarFilterLegend.jsx`: Active calendar filter pills.
+  * `src/components/WeatherWidgetsCluster.jsx`: Weather telemetry, wind compass, moon phase, and 24-hr forecast marquee.
+  * `src/components/SystemHealthWidget.jsx`: CPU model and memory utilization monitor.
+  * `src/utils/moonUtils.js`: Astronomical calculations for lunar phases.
+* **Backend:** Express.js Proxy Server with `googleapis`, `node-ical`, and `axios`.
+* **Docker:** Multi-stage `Dockerfile` and `docker-compose.yml` for isolated deployment.
 
 ### Configuration
 
 1. **Environment Variables:**
-   A template file `.env.example` is provided at the root containing the layout. Copy it to create your active `.env` file!
+   A template file `.env.example` is provided at the root containing the layout. Copy it to create your active `.env` file:
    ```bash
    cp .env.example .env
    ```
-   Then fill in your unique configuration parameters:
+
+2. **Multi-Calendar Setup:**
+   You can configure multiple iCal feeds or Google Calendar IDs in `.env`.
+
+   **Option A: Multiple iCal Feeds (Public `.ics` URLs)**
    ```env
-   # SECURE CONFIG - API keys & URLs
+   CALENDAR_MODE=ical
+   
+   # Format: Name|URL|#HexColor (comma-separated for multiple calendars)
+   CALENDAR_ICAL_URLS=Work|https://example.com/work.ics|#3b82f6, Personal|https://example.com/personal.ics|#10b981
+   
+   # Legacy single feed also supported:
+   # CALENDAR_ICAL_URL=https://example.com/calendar.ics
+   ```
+
+   **Option B: Google Calendar Service Account**
+   ```env
+   CALENDAR_MODE=service_account
+   
+   # Format: Name|Calendar_ID|#HexColor (comma-separated for multiple calendars)
+   CALENDAR_IDS=Work|work@group.calendar.google.com|#3b82f6, Personal|personal@gmail.com|#10b981
+   SERVICE_ACCOUNT_PATH=./path/to/service-account.json
+   ```
+
+3. **General Environment Config:**
+   ```env
    WEATHER_KEY=your_openweather_api_key_here
    PING_TARGET=8.8.8.8
    PORT=3000
-   
-   # Calendar Config (Timezone required for accurate "Today" boundary parsing)
    TZ=Africa/Johannesburg
-   # CALENDAR_MODE options: 'service_account', 'ical', or 'none'
-   CALENDAR_MODE=ical
-   CALENDAR_ID=your_google_calendar_id_here
-   SERVICE_ACCOUNT_PATH=./path/to/service-account.json
-   CALENDAR_ICAL_URL=your_public_ical_url_here
    ```
 
 ### Execution & Deployment
 
-**Option A: Precompiled Docker Image (x86_64 Architecture)**
-For maximum simplicity on standard Intel/AMD hardware (x86_64), you can utilize a precompiled Docker image `.tar` archive.
-1. Download the precompiled image from [Google Drive](https://drive.google.com/file/d/142QmhbwsfcSDhQWXRP2T5gjDmVCavYS-/view?usp=sharing) and place it in the `precompiled` directory.
-2. Load the precompiled image into your host's Docker daemon:
-   ```bash
-   docker load -i precompiled/dashboard_gui_v1_x86_64.tar
-   ```
-3. Start the container stack using Docker Compose:
-   ```bash
-   docker compose up -d
-   ```
+**Build & Run with Docker Compose:**
+```bash
+docker compose up --build -d
+```
+Once the container is running, navigate to `http://localhost:12345` to view the dashboard!
 
-**Option B: Build from Source (ARM / Apple Silicon / Custom Tweaks)**
-If you are running on ARM architecture (like a Raspberry Pi or Apple M-Series hardware), or if you are making active code modifications, you must build the image locally:
-1. Trigger the Docker Compose build from the root directory:
-   ```bash
-   docker compose up --build -d
-   ```
-2. Wait for Vite to compile the React client and the Express backend server to launch.
+---
 
-Once the container is actively running, navigate to `http://localhost:12345` to view the dashboard!
-
-### Troubleshooting
-* **Missing Calendar Data:** Ensure your Google Calendar feed matches your `.env`. If using `ical`, the calendar must be publicly accessible via the secret `.ics` feed URL.
-* **White Screen/No UI:** Check that the React client compiled. Monitor docker output via `docker compose logs -f` to see if Vite failed to build the `dist` folder.
-* **Hardware Warning:** If the ambient background particles are glitching on older Intel hardware, confirm your host browser has CSS Hardware Acceleration enabled.
+### Documentation
+See [CHANGELOG.md](file:///home/hlatsiieydevs/Dashboard_GUI/CHANGELOG.md) for full version history.
